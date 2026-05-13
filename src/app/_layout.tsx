@@ -1,5 +1,5 @@
 // eslint-disable-next-line import/no-unresolved
-import '../../../global.css';
+import '../../global.css';
 
 import React, { useEffect } from 'react';
 import { Stack } from 'expo-router';
