@@ -18,7 +18,8 @@ import { verifyEmailOtp, verifyEmailChangeOtp, requestEmailOtp, requestEmailChan
 import { C, spacing, radii } from '@/theme';
 
 /**
- * Onboarding — 6-digit OTP verification.
+ * Onboarding — OTP verification (6–8 digits; Supabase's OTP length is configurable
+ * in Auth → Email → "OTP length", default 6, this project's tenant is set to 8).
  *
  * Design: progress bar (step 2/4), masked email display, OTP input,
  * "Verificar" CTA, "Reenviar código" with 30s cooldown.
@@ -31,6 +32,8 @@ import { C, spacing, radii } from '@/theme';
  * - Touch targets ≥ 44pt
  * - No PII in logs
  */
+const OTP_MIN = 6;
+const OTP_MAX = 8;
 export default function OnboardingVerify() {
   const router = useRouter();
   const { email, upgrade } = useLocalSearchParams<{ email: string; upgrade?: string }>();
@@ -67,8 +70,9 @@ export default function OnboardingVerify() {
 
   const handleVerify = async () => {
     setError('');
-    if (otp.trim().length !== 6) {
-      setError('Ingresá el código de 6 dígitos que te enviamos.');
+    const len = otp.trim().length;
+    if (len < OTP_MIN || len > OTP_MAX) {
+      setError(`Ingresá el código de ${OTP_MIN}–${OTP_MAX} dígitos que te enviamos.`);
       return;
     }
 
@@ -136,7 +140,7 @@ export default function OnboardingVerify() {
 
             {/* Sub-copy with masked email */}
             <Text style={styles.sub}>
-              Te enviamos un código de 6 dígitos a{' '}
+              Te enviamos el código a{' '}
               <Text style={styles.subBold}>{maskedEmail}</Text>. Puede tardar unos segundos.
             </Text>
 
@@ -144,21 +148,27 @@ export default function OnboardingVerify() {
             <View style={styles.fieldGroup}>
               <Text style={styles.label}>Código de verificación</Text>
               <TextInput
-                style={[styles.otpInput, error ? styles.inputError : null]}
+                // letterSpacing is conditional: applying it when the input is empty
+                // pushes the cursor off-center on Android (RN bug). Only space the
+                // digits once the user has typed something.
+                style={[
+                  styles.otpInput,
+                  otp.length > 0 && styles.otpInputFilled,
+                  error ? styles.inputError : null,
+                ]}
                 value={otp}
                 onChangeText={(v) => {
-                  // Only digits, max 6
-                  const digits = v.replace(/\D/g, '').slice(0, 6);
+                  const digits = v.replace(/\D/g, '').slice(0, OTP_MAX);
                   setOtp(digits);
                   setError('');
                 }}
-                placeholder="000000"
+                placeholder={'•'.repeat(OTP_MAX)}
                 placeholderTextColor={C.faint}
                 keyboardType="number-pad"
-                maxLength={6}
+                maxLength={OTP_MAX}
                 returnKeyType="done"
                 onSubmitEditing={handleVerify}
-                accessibilityLabel="Código de 6 dígitos"
+                accessibilityLabel={`Código de ${OTP_MIN} a ${OTP_MAX} dígitos`}
                 accessibilityHint="Ingresá el código que te enviamos por correo"
                 textContentType="oneTimeCode"
                 autoComplete="one-time-code"
@@ -176,9 +186,12 @@ export default function OnboardingVerify() {
 
             {/* Verify CTA */}
             <TouchableOpacity
-              style={[styles.btn, (otp.length !== 6 || loading) && styles.btnDisabled]}
+              style={[
+                styles.btn,
+                (otp.length < OTP_MIN || otp.length > OTP_MAX || loading) && styles.btnDisabled,
+              ]}
               onPress={handleVerify}
-              disabled={otp.length !== 6 || loading}
+              disabled={otp.length < OTP_MIN || otp.length > OTP_MAX || loading}
               activeOpacity={0.82}
               accessibilityRole="button"
               accessibilityLabel="Verificar código"
@@ -281,11 +294,15 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: C.hairline,
     paddingHorizontal: spacing[4],
-    fontSize: 28,
+    fontSize: 26,
     color: C.ink,
     fontFamily: 'JetBrainsMono_400Regular',
-    letterSpacing: 8,
     textAlign: 'center',
+  },
+  otpInputFilled: {
+    // Only space the digits once the user types — letterSpacing on an empty
+    // TextInput shifts the Android cursor to the right.
+    letterSpacing: 6,
   },
   inputError: {
     borderColor: '#C73E1D',
