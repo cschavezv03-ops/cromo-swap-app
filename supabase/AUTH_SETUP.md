@@ -106,15 +106,59 @@ when load-testing.
 
 ---
 
-### 7. Email templates — customize OTP copy (optional, cosmetic)
+### 7. Email templates — switch to OTP code (MANDATORY)
 **DASHBOARD ONLY**
 
 Path: `Authentication → Email Templates`
 
-- [ ] Customize the OTP / confirmation email subject and body for brand consistency
-  (Spanish copy, Cromo Swap branding).
+**Why MANDATORY**: the default Supabase templates send a confirmation **link**
+(`{{ .ConfirmationURL }}`) instead of the OTP **code** (`{{ .Token }}`). The
+app's onboarding flow (`src/app/onboarding/verify.tsx`) expects the user to
+type a 6-digit code, so the link approach breaks the UX completely.
 
-This is cosmetic and does not affect functionality. Defer if not a priority.
+Update the body of these **three** templates to use `{{ .Token }}`:
+
+1. **Confirm signup** — sent on first-time signup
+2. **Magic Link** — sent on repeat sign-ins via `signInWithOtp`
+3. **Change Email Address** — sent during the guest → registered upgrade (`updateUser({ email })`)
+
+For each, set:
+
+- **Subject**: `Tu código para entrar a Cromos`
+- **Message (HTML)**: paste the branded template below
+
+```html
+<!DOCTYPE html>
+<html lang="es">
+  <body style="margin:0;padding:0;background:#F7F4ED;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;color:#15140F;">
+    <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="background:#F7F4ED;padding:40px 20px;">
+      <tr>
+        <td align="center">
+          <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="480" style="max-width:480px;background:#FFFFFF;border-radius:16px;padding:40px 32px;">
+            <tr>
+              <td>
+                <p style="margin:0 0 8px 0;font-family:'SF Mono','JetBrains Mono',Menlo,monospace;font-size:11px;color:#1F5E3F;letter-spacing:2px;text-transform:uppercase;">◉ Cromos · Mundial 2026</p>
+                <h1 style="margin:0 0 24px 0;font-size:24px;font-weight:800;letter-spacing:-0.5px;color:#15140F;line-height:1.2;">Tu código de acceso</h1>
+                <p style="margin:0 0 24px 0;font-size:15px;line-height:1.5;color:#3A372F;">Ingresá este código en la app para confirmar tu correo:</p>
+                <div style="background:#F7F4ED;border:1px solid #E5E0D2;border-radius:12px;padding:24px;text-align:center;margin:0 0 24px 0;">
+                  <div style="font-family:'SF Mono','JetBrains Mono',Menlo,monospace;font-size:42px;font-weight:700;letter-spacing:8px;color:#1F5E3F;">{{ .Token }}</div>
+                </div>
+                <p style="margin:0 0 8px 0;font-size:13px;color:#7A766B;">El código vence en 1 hora.</p>
+                <p style="margin:0;font-size:13px;color:#7A766B;">Si no pediste este código, ignorá este mail. Nadie puede entrar a tu cuenta sin él.</p>
+                <hr style="border:none;border-top:1px solid #E5E0D2;margin:32px 0 16px 0;">
+                <p style="margin:0;font-size:11px;color:#B8B3A6;text-align:center;">Cromos · Sin pagos · Sin publicidad · Solo entre universidades de Quito</p>
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>
+```
+
+The only required dynamic token is `{{ .Token }}`. The rest of the template is
+static branding (paleta + tipografía del design system del proyecto).
 
 ---
 
