@@ -11,7 +11,8 @@
 BEGIN;
 
 -- How many tests to expect (update this count when adding tests)
-SELECT plan(58);
+-- Phase 2: 58 tests; Phase 3 adds: 15 new assertions = 73 total
+SELECT plan(73);
 
 -- =============================================================================
 -- HELPERS
@@ -971,6 +972,259 @@ SELECT throws_ok(
   42501,  -- insufficient_privilege (no INSERT policy)
   NULL,
   'R08-3: direct INSERT into auction_bids denied for authenticated client'
+);
+
+SELECT reset_session();
+
+-- =============================================================================
+-- PHASE 3: Auth & Onboarding — hook, triggers, is_confirmed
+-- =============================================================================
+-- These tests verify:
+--   A1-A4 from the task list:
+--   1. before_user_created_hook: bad domain → error key; good domain → no error
+--   2. before_user_created_hook: anonymous payload → no error
+--   3. private.handle_email_confirmed: simulated INSERT/UPDATE as postgres
+--      → profiles.university derived; re-derived on email change
+--   4. private.handle_new_anonymous_user: anon INSERT → guest profiles row
+--   5. private.is_confirmed: no claim → false
+--   6. Guard regression: client UPDATE profiles SET university=... still throws
+--   7. Empty scope: registered user with scope='{}' → in_scope false, zero other profiles
+-- =============================================================================
+
+RESET role;
+
+-- ---------------------------------------------------------------------------
+-- P3-1: before_user_created_hook — bad domain (@gmail.com) → error key
+-- ---------------------------------------------------------------------------
+SELECT is(
+  (public.before_user_created_hook(
+    '{"metadata":{"uuid":"00000000-0000-0000-0000-000000000001","time":"2026-01-01T00:00:00Z","name":"before-user-created","ip_address":"127.0.0.1"},"user":{"id":"00000000-0000-0000-0000-000000000002","aud":"authenticated","role":"","email":"student@gmail.com","phone":"","app_metadata":{"provider":"email","providers":["email"]},"user_metadata":{},"identities":[],"created_at":"0001-01-01T00:00:00Z","updated_at":"0001-01-01T00:00:00Z","is_anonymous":false}}'::jsonb
+  )) ? 'error',
+  true,
+  'P3-1: before_user_created_hook returns error key for @gmail.com (bad domain)'
+);
+
+-- ---------------------------------------------------------------------------
+-- P3-2: before_user_created_hook — good institutional domain (@epn.edu.ec) → no error key
+-- ---------------------------------------------------------------------------
+SELECT is(
+  (public.before_user_created_hook(
+    '{"metadata":{"uuid":"00000000-0000-0000-0000-000000000003","time":"2026-01-01T00:00:00Z","name":"before-user-created","ip_address":"127.0.0.1"},"user":{"id":"00000000-0000-0000-0000-000000000004","aud":"authenticated","role":"","email":"student@epn.edu.ec","phone":"","app_metadata":{"provider":"email","providers":["email"]},"user_metadata":{},"identities":[],"created_at":"0001-01-01T00:00:00Z","updated_at":"0001-01-01T00:00:00Z","is_anonymous":false}}'::jsonb
+  )) ? 'error',
+  false,
+  'P3-2: before_user_created_hook returns no error key for @epn.edu.ec (institutional domain)'
+);
+
+-- ---------------------------------------------------------------------------
+-- P3-3: before_user_created_hook — uppercase domain (@EPN.EDU.EC) → citext, no error
+-- ---------------------------------------------------------------------------
+SELECT is(
+  (public.before_user_created_hook(
+    '{"metadata":{"uuid":"00000000-0000-0000-0000-000000000005","time":"2026-01-01T00:00:00Z","name":"before-user-created","ip_address":"127.0.0.1"},"user":{"id":"00000000-0000-0000-0000-000000000006","aud":"authenticated","role":"","email":"student@EPN.EDU.EC","phone":"","app_metadata":{"provider":"email","providers":["email"]},"user_metadata":{},"identities":[],"created_at":"0001-01-01T00:00:00Z","updated_at":"0001-01-01T00:00:00Z","is_anonymous":false}}'::jsonb
+  )) ? 'error',
+  false,
+  'P3-3: before_user_created_hook is case-insensitive (citext) — @EPN.EDU.EC allowed'
+);
+
+-- ---------------------------------------------------------------------------
+-- P3-4: before_user_created_hook — anonymous payload (is_anonymous=true) → no error
+-- ---------------------------------------------------------------------------
+SELECT is(
+  (public.before_user_created_hook(
+    '{"metadata":{"uuid":"00000000-0000-0000-0000-000000000007","time":"2026-01-01T00:00:00Z","name":"before-user-created","ip_address":"127.0.0.1"},"user":{"id":"00000000-0000-0000-0000-000000000008","aud":"authenticated","role":"","email":"","phone":"","app_metadata":{"provider":"anonymous","providers":["anonymous"]},"user_metadata":{},"identities":[],"created_at":"0001-01-01T00:00:00Z","updated_at":"0001-01-01T00:00:00Z","is_anonymous":true}}'::jsonb
+  )) ? 'error',
+  false,
+  'P3-4: before_user_created_hook allows anonymous signups unconditionally'
+);
+
+-- ---------------------------------------------------------------------------
+-- P3-5: handle_email_confirmed trigger — INSERT with confirmed institutional email
+--        → profiles row created with derived university, is_anonymous=false
+-- (We insert directly into auth.users as postgres to simulate the trigger.)
+-- We use UUIDs in a reserved test range distinct from the Phase 2 setup users.
+-- ---------------------------------------------------------------------------
+RESET role;
+
+DO $$
+DECLARE
+  v_uid uuid := '00000000-3001-0000-0000-000000000000';
+BEGIN
+  -- Insert auth.users row with email_confirmed_at set (trigger fires on INSERT)
+  INSERT INTO auth.users (id, email, email_confirmed_at, created_at, updated_at, raw_user_meta_data, is_anonymous)
+  VALUES (v_uid, 'p3test@epn.edu.ec', now(), now(), now(), '{}', false)
+  ON CONFLICT (id) DO NOTHING;
+
+  INSERT INTO test_uuids (key, val) VALUES ('p3_epn_user', v_uid)
+  ON CONFLICT DO NOTHING;
+END;
+$$;
+
+SELECT is(
+  (SELECT university FROM public.profiles WHERE id = (SELECT val FROM test_uuids WHERE key = 'p3_epn_user')),
+  'EPN',
+  'P3-5: handle_email_confirmed derives university=EPN from @epn.edu.ec on INSERT'
+);
+
+SELECT is(
+  (SELECT is_anonymous FROM public.profiles WHERE id = (SELECT val FROM test_uuids WHERE key = 'p3_epn_user')),
+  false,
+  'P3-5: handle_email_confirmed sets is_anonymous=false on profiles upsert'
+);
+
+-- ---------------------------------------------------------------------------
+-- P3-6: handle_email_confirmed trigger — UPDATE email to another institutional domain
+--        → profiles.university re-derived to new university
+-- ---------------------------------------------------------------------------
+RESET role;
+
+UPDATE auth.users
+SET email = 'p3test@uce.edu.ec', email_confirmed_at = now()
+WHERE id = (SELECT val FROM test_uuids WHERE key = 'p3_epn_user');
+
+SELECT is(
+  (SELECT university FROM public.profiles WHERE id = (SELECT val FROM test_uuids WHERE key = 'p3_epn_user')),
+  'UCE',
+  'P3-6: handle_email_confirmed re-derives university=UCE after email change to @uce.edu.ec'
+);
+
+-- ---------------------------------------------------------------------------
+-- P3-7: handle_email_confirmed trigger — UPDATE email to unrecognized domain
+--        → profiles.university UNCHANGED (left as UCE from P3-6), no exception
+-- ---------------------------------------------------------------------------
+RESET role;
+
+UPDATE auth.users
+SET email = 'p3test@gmail.com', email_confirmed_at = now()
+WHERE id = (SELECT val FROM test_uuids WHERE key = 'p3_epn_user');
+
+SELECT is(
+  (SELECT university FROM public.profiles WHERE id = (SELECT val FROM test_uuids WHERE key = 'p3_epn_user')),
+  'UCE',
+  'P3-7: handle_email_confirmed leaves university unchanged for unrecognized domain (defensive, no exception)'
+);
+
+-- ---------------------------------------------------------------------------
+-- P3-8: handle_new_anonymous_user trigger — anonymous INSERT → guest profiles row
+-- ---------------------------------------------------------------------------
+RESET role;
+
+DO $$
+DECLARE
+  v_uid uuid := '00000000-3002-0000-0000-000000000000';
+BEGIN
+  INSERT INTO auth.users (id, email, created_at, updated_at, raw_user_meta_data, is_anonymous)
+  VALUES (v_uid, NULL, now(), now(), '{}', true)
+  ON CONFLICT (id) DO NOTHING;
+
+  INSERT INTO test_uuids (key, val) VALUES ('p3_anon_user', v_uid)
+  ON CONFLICT DO NOTHING;
+END;
+$$;
+
+SELECT is(
+  (SELECT is_anonymous FROM public.profiles WHERE id = (SELECT val FROM test_uuids WHERE key = 'p3_anon_user')),
+  true,
+  'P3-8: handle_new_anonymous_user creates profiles row with is_anonymous=true on anon INSERT'
+);
+
+SELECT is(
+  (SELECT university FROM public.profiles WHERE id = (SELECT val FROM test_uuids WHERE key = 'p3_anon_user')),
+  NULL,
+  'P3-8: anon user profiles row has university=NULL (no scope)'
+);
+
+-- ---------------------------------------------------------------------------
+-- P3-9: private.is_confirmed() — no JWT claim → false
+-- Called as postgres (matching the pattern private.is_blocked uses in this suite).
+-- is_confirmed() reads auth.jwt(); in the test context, jwt() returns an empty
+-- or minimal object, so email_confirmed_at is absent → should return false.
+-- ---------------------------------------------------------------------------
+RESET role;
+
+SELECT is(
+  private.is_confirmed(),
+  false,
+  'P3-9: is_confirmed() returns false when JWT has no email_confirmed_at claim'
+);
+
+-- ---------------------------------------------------------------------------
+-- P3-10: Guard regression — client UPDATE profiles SET university=... still throws
+--         (the 0019 guard trigger must still block clients even after 0020)
+-- ---------------------------------------------------------------------------
+SELECT set_session_as((SELECT val FROM test_uuids WHERE key = 'user_a'));
+
+SELECT throws_ok(
+  format($$
+  UPDATE public.profiles
+  SET university = 'USFQ'
+  WHERE id = '%s'
+  $$, (SELECT val FROM test_uuids WHERE key = 'user_a')),
+  'P0001',
+  NULL,
+  'P3-10: profiles.university is still not client-writable after 0020 (guard trigger regression)'
+);
+
+SELECT reset_session();
+
+-- ---------------------------------------------------------------------------
+-- P3-11: Derivation path as postgres — profiles.university CAN be set by
+--         postgres role (simulates what handle_email_confirmed does)
+-- ---------------------------------------------------------------------------
+RESET role;
+
+SELECT lives_ok(
+  format($$
+  UPDATE public.profiles
+  SET university = 'PUCE'
+  WHERE id = '%s'
+  $$, (SELECT val FROM test_uuids WHERE key = 'p3_epn_user')),
+  'P3-11: postgres role CAN update profiles.university (derivation path bypass)'
+);
+
+-- Restore to clean state (EPN for consistency)
+UPDATE public.profiles SET university = 'EPN' WHERE id = (SELECT val FROM test_uuids WHERE key = 'p3_epn_user');
+
+-- ---------------------------------------------------------------------------
+-- P3-12: Empty scope → in_scope returns false; zero other-profiles rows visible
+-- Insert a user with scope='{}' and verify they see no other profiles
+-- ---------------------------------------------------------------------------
+RESET role;
+
+DO $$
+DECLARE
+  v_uid uuid := '00000000-3003-0000-0000-000000000000';
+BEGIN
+  INSERT INTO auth.users (id, email, created_at, updated_at, raw_user_meta_data)
+  VALUES (v_uid, 'noscope@puce.edu.ec', now(), now(), '{}')
+  ON CONFLICT (id) DO NOTHING;
+
+  -- Profile with scope='{}' (no universities selected)
+  INSERT INTO public.profiles (id, display_name, university, scope, is_anonymous)
+  VALUES (v_uid, 'NoScope User', 'PUCE', ARRAY[]::text[], false)
+  ON CONFLICT (id) DO NOTHING;
+
+  INSERT INTO test_uuids (key, val) VALUES ('p3_noscope_user', v_uid)
+  ON CONFLICT DO NOTHING;
+END;
+$$;
+
+SELECT is(
+  private.in_scope(
+    (SELECT val FROM test_uuids WHERE key = 'p3_noscope_user'),
+    'EPN'
+  ),
+  false,
+  'P3-12: in_scope returns false for user with scope={}'
+);
+
+-- Empty-scope user sees zero other-user profiles (scope filtering)
+SELECT set_session_as((SELECT val FROM test_uuids WHERE key = 'p3_noscope_user'));
+
+SELECT is(
+  (SELECT count(*)::int FROM public.profiles
+   WHERE id <> (SELECT val FROM test_uuids WHERE key = 'p3_noscope_user')),
+  0,
+  'P3-12: registered user with scope={} sees zero other profiles (no matching scope)'
 );
 
 SELECT reset_session();
