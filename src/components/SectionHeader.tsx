@@ -1,18 +1,19 @@
 /**
- * SectionHeader — sticky country section header for the album SectionList.
+ * SectionHeader — per-country section header for the album view.
+ * Faithfully recreates the Claude Design v2 reference (screens-main.jsx).
+ *
+ * Layout: flag emoji + (country name ExtraBold / code·N/total mono) + right-aligned
+ * 80px ProgressBar filled with the country's accent color.
  *
  * ui-ux-pro-max guidance applied:
- * - Solid C.paper background (required for sticky headers — no transparency)
- * - Bottom hairline border as section separator
- * - Flag emoji in data display context (acceptable — it's country data, not a structural icon)
- * - JetBrains Mono for country code (scannable, consistent with design system)
- * - ProgressRing sm (24px) pushed to right via marginLeft: 'auto' — clean right-align
- * - zIndex: 2 ensures it stays above card grid when sticky
+ * - accessibilityRole="header" + label
+ * - Flag emoji is country data (acceptable per no-emoji-icons rule)
+ * - backgroundColor C.paper for sticky rendering above card grid
+ * - ProgressBar (height 4) instead of ProgressRing — matches the design reference
  */
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { C, spacing, FONTS } from '@/theme';
-import ProgressRing from './ProgressRing';
 
 interface SectionHeaderProps {
   flagEmoji: string;
@@ -20,6 +21,8 @@ interface SectionHeaderProps {
   countryName: string;
   ownedCount: number;
   total: number;
+  /** Country accent color for the progress bar fill */
+  accent?: string;
 }
 
 export default function SectionHeader({
@@ -28,8 +31,9 @@ export default function SectionHeader({
   countryName,
   ownedCount,
   total,
+  accent = C.accent,
 }: SectionHeaderProps) {
-  const pct = total > 0 ? Math.round((ownedCount / total) * 100) : 0;
+  const pct = total > 0 ? (ownedCount / total) * 100 : 0;
 
   return (
     <View
@@ -37,22 +41,33 @@ export default function SectionHeader({
       accessibilityRole="header"
       accessibilityLabel={`${countryName}: ${ownedCount} de ${total} cromos`}
     >
-      {/* Flag + code block */}
+      {/* Flag emoji */}
       <Text style={styles.flag} accessibilityElementsHidden>
         {flagEmoji}
       </Text>
-      <Text style={styles.code}>{countryCode}</Text>
 
-      {/* Country name */}
-      <Text style={styles.name} numberOfLines={1}>
-        {countryName}
-      </Text>
+      {/* Country name + code · N/total */}
+      <View style={styles.nameBlock}>
+        <Text style={styles.countryName} numberOfLines={1}>
+          {countryName}
+        </Text>
+        <Text style={styles.countryMeta}>
+          {countryCode} · {ownedCount}/{total}
+        </Text>
+      </View>
 
-      {/* Right: progress ring + X/Y count */}
-      <ProgressRing size="sm" pct={pct} />
-      <Text style={styles.count}>
-        {ownedCount}/{total}
-      </Text>
+      {/* Accent-colored thin progress bar — 80px wide */}
+      <View style={styles.barTrack}>
+        <View
+          style={[
+            styles.barFill,
+            {
+              width: `${Math.min(pct, 100)}%`,
+              backgroundColor: accent,
+            },
+          ]}
+        />
+      </View>
     </View>
   );
 }
@@ -61,35 +76,46 @@ const styles = StyleSheet.create({
   container: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: spacing[4],
-    paddingVertical: spacing[3],
+    paddingHorizontal: spacing[5],  // 20px — matches design
+    paddingVertical: spacing[2] + 2, // ~10px
+    paddingBottom: spacing[2] + 2,
     backgroundColor: C.paper,
-    borderBottomWidth: 1,
-    borderBottomColor: C.hairline,
     zIndex: 2,
     gap: spacing[2],
   },
   flag: {
-    fontSize: 18,
-    lineHeight: 22,
+    fontSize: 22,
+    lineHeight: 28,
   },
-  code: {
-    fontFamily: FONTS.mono,
-    fontSize: 12,
-    color: C.accent,
-    letterSpacing: 0.5,
-  },
-  name: {
-    fontFamily: FONTS.manropeSemiBold,
-    fontSize: 13,
-    color: C.ink2,
+  nameBlock: {
     flex: 1,
+    minWidth: 0,
   },
-  count: {
+  countryName: {
+    fontFamily: FONTS.manropeExtraBold,
+    fontSize: 15,
+    letterSpacing: -0.3,
+    color: C.ink,
+    lineHeight: 19,
+  },
+  countryMeta: {
     fontFamily: FONTS.mono,
-    fontSize: 11,
+    fontSize: 10,
     color: C.muted,
-    marginLeft: spacing[1],
+    letterSpacing: 0.3,
+    marginTop: 0,
+  },
+  barTrack: {
+    width: 80,
+    height: 4,
+    backgroundColor: C.paper2,
+    borderRadius: 99,
+    overflow: 'hidden',
+    flexShrink: 0,
+  },
+  barFill: {
+    height: '100%',
+    borderRadius: 99,
   },
 });
 

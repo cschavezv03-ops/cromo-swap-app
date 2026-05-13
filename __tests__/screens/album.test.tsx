@@ -39,20 +39,21 @@ jest.mock('react-native-svg', () => {
   const React = require('react');
   const MockView = ({ children }: { children?: React.ReactNode }) =>
     React.createElement('View', null, children);
-  const MockRect = () => React.createElement('View', null);
+  const MockNoop = () => React.createElement('View', null);
   const MockText = ({ children }: { children?: React.ReactNode }) =>
     React.createElement('Text', null, children);
-  const MockCircle = () => React.createElement('View', null);
   return {
     __esModule: true,
     default: MockView,
     Svg: MockView,
-    Rect: MockRect,
+    Rect: MockNoop,
     Text: MockText,
-    Circle: MockCircle,
+    Circle: MockNoop,
     Defs: MockView,
+    Pattern: MockView,
+    Line: MockNoop,
     RadialGradient: MockView,
-    Stop: () => React.createElement('View', null),
+    Stop: MockNoop,
   };
 });
 

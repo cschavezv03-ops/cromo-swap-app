@@ -33,19 +33,21 @@ jest.mock('react-native-svg', () => {
   const React = require('react');
   const MockView = ({ children }: { children?: React.ReactNode }) =>
     React.createElement('View', null, children);
-  const MockRect = () => React.createElement('View', null);
+  const MockNoop = () => React.createElement('View', null);
   const MockText = ({ children }: { children?: React.ReactNode }) =>
     React.createElement('Text', null, children);
   return {
     __esModule: true,
     default: MockView,
     Svg: MockView,
-    Rect: MockRect,
+    Rect: MockNoop,
     Text: MockText,
-    Circle: () => React.createElement('View', null),
+    Circle: MockNoop,
     Defs: MockView,
+    Pattern: MockView,
+    Line: MockNoop,
     RadialGradient: MockView,
-    Stop: () => React.createElement('View', null),
+    Stop: MockNoop,
   };
 });
 
@@ -110,8 +112,8 @@ describe('CromoCard', () => {
       const { queryByText } = render(<CromoCard cromo={cromo} />);
       // Player name should NOT be visible in missing state
       expect(queryByText('Lionel Messi')).toBeNull();
-      // The cromo number should appear in the faint center
-      expect(queryByText('7')).not.toBeNull();
+      // The cromo number should appear in the faint center (3-digit zero-padded)
+      expect(queryByText('007')).not.toBeNull();
     });
 
     it('renders status=have (white bg, full content)', () => {
