@@ -25,6 +25,8 @@ All schema changes go through migrations in `supabase/migrations/`. Never run ad
 | `0015_listings_no_double_listing_individual.sql` | Closes the `individual→package` double-listing gap: `BEFORE INSERT` + `BEFORE UPDATE OF cromo_id,status,kind` trigger on `listings` raising P0001 when a cromo already in an active package is individually listed |
 | `0016_fk_indexes.sql` | Adds btree indexes on `catalog_cromos(country)`, `catalog_cromos(rarity)`, `transactions(offered_cromo_id)` — flagged by `get_advisors(performance)` as unindexed FKs |
 | `0017_profile_contacts.sql` | **Security fix (W2)**: moves `whatsapp_phone` out of `profiles` into a new `profile_contacts` table with its own RLS. Owner has full CRUD; counterparties with an accepted transaction get SELECT only. Drops the old SECURITY DEFINER `contact_info` view and recreates it as a plain `security_invoker = true` view over `profile_contacts`. Removes the advisor warning for `contact_info`. |
+| `0018_fix_in_scope.sql` | **Bug fix**: `private.in_scope()` used `= ANY(SELECT scope …)` which compares `text = text[]` — a type mismatch caught by pgTAP. Fixed to `EXISTS(… AND target_university = ANY(scope))`. Affects `profiles_read_others` policy and `matches` view. |
+| `0019_guard_triggers_security_invoker.sql` | **Security fix**: guard trigger functions (`guard_profiles_immutable_cols`, `guard_listings_status`, `guard_transactions_status`, `guard_notifications_read_only`) were `SECURITY DEFINER` — inside them `current_user` is always `'postgres'` (the owner), so the service-role bypass check always passed and guards NEVER fired. Removed `SECURITY DEFINER`; functions are now `SECURITY INVOKER` so `current_user` reflects the actual client role. |
 
 ## How to apply
 
@@ -46,7 +48,7 @@ supabase/tests/rls_test.sql
 
 **Run**: `supabase test db`
 
-Covers R13-1 through R13-9 from the Phase 2 spec (57 assertions, `plan(57)`):
+Covers R13-1 through R13-9 from the Phase 2 spec (58 assertions, `plan(58)`):
 - Deny-by-default on every table
 - Guest lockout (listings/transactions/auction_bids/others' inventory/others' profiles, profile_contacts)
 - Block invisibility (symmetric, both directions)
@@ -59,37 +61,62 @@ Covers R13-1 through R13-9 from the Phase 2 spec (57 assertions, `plan(57)`):
 
 `0014_enable_pgtap.sql` must be applied before running tests (dev/staging only).
 
-## Post-apply checklist (after all 17 migrations are applied)
+## Post-apply checklist (after all 19 migrations are applied)
 
-1. Run `mcp__supabase__get_advisors` (security level) — 2 intentional SECURITY DEFINER VIEW warnings remain (`matches`, `cromo_with_country_rarity`); `contact_info` warning is GONE (0017).
-2. Run `mcp__supabase__get_advisors` (performance level) — MUST return zero unexpected warnings
-3. Run `mcp__supabase__list_tables` — verify all 12 tables + 3 views present (`profile_contacts` added)
-4. Run `supabase test db` — all 57 pgTAP tests green
-5. Run `mcp__supabase__generate_typescript_types` → overwrite `src/types/database.ts` and commit
+1. Run `mcp__supabase__get_advisors` (security level) — 2 intentional SECURITY DEFINER VIEW warnings remain (`matches`, `cromo_with_country_rarity`); `contact_info` warning is GONE (0017). See § Advisor acceptance.
+2. Run `mcp__supabase__get_advisors` (performance level) — expected: 4 multiple_permissive_policies WARN + N unused_index INFO (all documented in § Advisor acceptance).
+3. Run `mcp__supabase__list_tables` — verify all 13 tables + 3 views present (`profile_contacts` added by 0017).
+4. Run `supabase test db` — all 58 pgTAP assertions green (58 as of 0019 fix; plan updated).
+5. Run `mcp__supabase__generate_typescript_types` → overwrite `src/types/database.ts` and commit.
+
+## Advisor acceptance
+
+This section documents all `get_advisors` items that are intentionally accepted, satisfying NFR R13-10 ("zero *unexpected* advisor warnings").
+
+### Security advisor — accepted items
+
+`get_advisors(security)` returns **2** SECURITY DEFINER VIEW errors as of migration 0019. Both are intentional:
+
+| View | Reason accepted |
+|------|----------------|
+| `matches` | Calls `private.is_guest()`, `private.is_blocked()`, `private.in_scope()` — all SECURITY DEFINER helpers that require owner rights to access the `private` schema. `security_barrier=true` is set. Required by design. |
+| `cromo_with_country_rarity` | Postgres views default to SECURITY DEFINER (run as owner). The underlying tables (`catalog_cromos`, `countries`, `rarities`) have open SELECT policies for `anon` and `authenticated`. No sensitive data exposed. Acceptable — no private data at risk. |
+
+`contact_info` is **not flagged** — migration 0017 recreated it as `security_invoker = true` over `profile_contacts`.
+
+### Performance advisor — accepted items
+
+`get_advisors(performance)` returns the following items, all expected and documented:
+
+**multiple_permissive_policies WARN (4 tables):**
+
+| Table | Policies | Reason |
+|-------|----------|--------|
+| `profiles` | `profiles_own_all` + `profiles_read_others` | Own-row full access + others'-read (non-guest, non-blocked, in-scope). Split is intentional — cannot merge into a single USING predicate. |
+| `inventory_items` | `inventory_own_all` + `inventory_read_others` | Same own + others'-read split. |
+| `listings` | `listings_own_all` + `listings_read_others` | Same own + others'-read split. |
+| `profile_contacts` | `profile_contacts_owner_select` + `profile_contacts_counterparty_select` | Owner sees their own row; counterparty (accepted-tx) sees it too. Two separate SELECT conditions cannot be collapsed. |
+
+**unused_index INFO (all listings/listing_packages/profiles/auction_bids/catalog_cromos/transactions/blocks/inventory_items/notifications tables):**
+All indexes are expected to show as "unused" on a zero-traffic fresh database. These indexes support query patterns that will be exercised in Phase 4+ (browse, match, bid). Re-evaluate after Phase 6 when real traffic exists; remove any truly unnecessary indexes at that point.
 
 ## Security model summary
 
 - **Deny by default**: RLS enabled on every table; no policy = no access.
 - **Service-role key**: server-only (Edge Functions). Never in client-reachable code.
 - **`(SELECT auth.uid())`** subselect in every policy (never bare `auth.uid()`).
-- **`private.*` helpers**: SECURITY DEFINER, `SET search_path = ''`, fully-qualified bodies, REVOKE/GRANT.
-- **WhatsApp reveal**: `whatsapp_phone` lives in `profile_contacts` table, RLS-gated to owner + accepted-transaction counterparties. `contact_info` is a plain `security_invoker = true` view over it — the canonical API surface. Client must never query `profiles` for a phone number (the column no longer exists there as of 0017).
+- **`private.*` helper functions**: SECURITY DEFINER, `SET search_path = ''`, fully-qualified bodies, REVOKE/GRANT. These helpers call objects in `private` schema and need owner rights.
+- **Guard trigger functions** (`guard_profiles_immutable_cols`, `guard_listings_status`, `guard_transactions_status`, `guard_notifications_read_only`): **SECURITY INVOKER** (as of 0019). They do not need elevated rights — they only inspect OLD/NEW and raise exceptions. Being SECURITY INVOKER means `current_user` correctly reflects the client role, so the service-role bypass check (`current_user = 'postgres'`) works as intended.
+- **WhatsApp reveal**: `whatsapp_phone` lives in `profile_contacts` table, RLS-gated to owner + accepted-transaction counterparties. `contact_info` is a plain `security_invoker = true` view over it — the canonical API surface.
 - **Reservation lock**: partial UNIQUE index on `listings(cromo_id) WHERE status='active' AND kind IN ('trade','sale','auction')` + `SELECT FOR UPDATE` in the accept Edge Fn (Phase 5).
 - **Guest isolation**: `private.is_guest()` reads `is_anonymous` JWT claim; guests cannot see any social surface.
 - **Block symmetry**: `private.is_blocked(a,b)` checks both directions; enforced in all policies.
-
-## Security advisor notes
-
-The `get_advisors(security)` tool flags **2** SECURITY DEFINER views (down from 3 after 0017):
-
-- `matches`: calls `private.is_guest()`, `private.is_blocked()`, `private.in_scope()` — all SECURITY DEFINER helpers that require owner rights. `security_barrier=true` is set. Required by design — see §5 matches.
-- `cromo_with_country_rarity`: Postgres views default to SECURITY DEFINER (run as owner). The underlying tables have open SELECT policies (`anon, authenticated`). No sensitive data. Acceptable.
-
-`contact_info` is **no longer flagged** — migration 0017 recreated it with `security_invoker = true` as a plain view over `profile_contacts`. The underlying table's RLS (`profile_contacts_owner_select` + `profile_contacts_counterparty_select`) is the enforcement mechanism.
 
 ## Known open items
 
 - PUCE email domain: `puce.edu.ec` is used; satellite campus variants (`pucesa.edu.ec`, `pucesi.edu.ec`) TBD. The `email_domain` column is `NULLABLE` to handle this. Confirm in Phase 3.
 - `matches` view performance: if average query time > 500ms at scale, migrate to an Edge Function (Phase 10 review).
 - `whatsapp_phone` column-level hiding: **CLOSED by 0017**. The phone now lives in `profile_contacts` with its own RLS (owner + accepted-transaction counterparty). DB-enforced, not convention-only. Verify finding W2 is resolved.
-- `language sql` vs `language plpgsql` for private helpers: functions that reference tables not yet created at function-creation time use `plpgsql` for deferred body validation. This is documented in `0004_profiles.sql`. The `language sql` versions in the migration files were updated to `plpgsql` to match what was actually applied.
+- `language sql` vs `language plpgsql` for private helpers: functions that reference tables not yet created at function-creation time use `plpgsql` for deferred body validation. This is documented in `0004_profiles.sql`.
+- `private.in_scope` type mismatch: **CLOSED by 0018**. The original `= ANY(subquery)` compared `text = text[]`. Fixed to `EXISTS(… AND target_university = ANY(scope))`.
+- Guard triggers SECURITY DEFINER: **CLOSED by 0019**. Guard trigger functions were SECURITY DEFINER, making `current_user` always `'postgres'` inside them — the guard never fired. Replaced with SECURITY INVOKER. pgTAP now confirms guard triggers work correctly.

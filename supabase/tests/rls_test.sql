@@ -11,7 +11,7 @@
 BEGIN;
 
 -- How many tests to expect (update this count when adding tests)
-SELECT plan(57);
+SELECT plan(58);
 
 -- =============================================================================
 -- HELPERS
@@ -60,7 +60,7 @@ BEGIN
     (user_b, '+593997654321')
   ON CONFLICT (user_id) DO NOTHING;
 
-  -- Get two catalog cromo IDs for testing
+  -- Get three catalog cromo IDs for testing
   SELECT id INTO cromo1 FROM public.catalog_cromos LIMIT 1;
   SELECT id INTO cromo2 FROM public.catalog_cromos OFFSET 1 LIMIT 1;
 
@@ -74,9 +74,10 @@ BEGIN
   ON CONFLICT (user_id, cromo_id) DO NOTHING;
 
   -- Create a public listing for User B (visible to everyone)
+  -- Using kind='trade' (not 'sale') — sale requires a non-null price (listings_sale_price_check).
   listing1 := gen_random_uuid();
   INSERT INTO public.listings (id, seller_id, kind, status, cromo_id, is_public, scope_universities)
-  VALUES (listing1, user_b, 'sale', 'active', cromo2,
+  VALUES (listing1, user_b, 'trade', 'active', cromo2,
           true, ARRAY['PUCE','EPN'])
   ON CONFLICT DO NOTHING;
 
@@ -91,8 +92,18 @@ BEGIN
     ('cromo2',   cromo2),
     ('listing1', listing1)
   ON CONFLICT DO NOTHING;
+
+  -- cromo3: a third catalog cromo used for puce_listing (separate from cromo1/cromo2
+  -- to avoid reservation-index or guard-trigger conflicts with R13-7/R13-9 setup).
+  INSERT INTO test_uuids (key, val)
+    SELECT 'cromo3', id FROM public.catalog_cromos OFFSET 2 LIMIT 1
+  ON CONFLICT DO NOTHING;
 END;
 $$;
+
+-- Grant authenticated role access to the temp table so SET LOCAL role = authenticated
+-- sessions can still read UUIDs.
+GRANT SELECT ON test_uuids TO authenticated;
 
 -- Shorthand functions to set session user context (simulate JWT claims)
 CREATE OR REPLACE FUNCTION set_session_as(p_user_id uuid, p_is_anon boolean DEFAULT false)
@@ -185,12 +196,14 @@ SELECT is(
   'R13-2: fresh user sees zero others inventory (deny-by-default)'
 );
 
--- Fresh user sees zero listings (no profile → not in scope of any listing)
+-- Fresh user sees zero scoped (non-public) listings (no university → not in scope).
+-- Public listings are intentionally visible to any authenticated non-guest user.
 SELECT is(
   (SELECT count(*)::int FROM public.listings
-   WHERE seller_id <> (SELECT val FROM test_uuids WHERE key='fresh_id')),
+   WHERE seller_id <> (SELECT val FROM test_uuids WHERE key='fresh_id')
+     AND is_public = false),
   0,
-  'R13-2: fresh user sees zero listings (deny-by-default, not in scope)'
+  'R13-2: fresh user sees zero scoped (non-public) listings (deny-by-default, not in scope)'
 );
 
 SELECT is(
@@ -347,14 +360,17 @@ DELETE FROM public.blocks
 -- =============================================================================
 
 -- Create a PUCE-scoped private listing (seller B)
+-- Using kind='trade' (not 'sale') — sale requires a non-null price.
+-- Using cromo3 to avoid reservation-index conflict with listing1 (cromo2)
+-- and to avoid conflicting with the R13-9 package test (which uses cromo1).
 RESET role;
 DO $$
 DECLARE puce_listing uuid := gen_random_uuid();
 BEGIN
   INSERT INTO public.listings (id, seller_id, kind, status, cromo_id, is_public, scope_universities)
   VALUES (puce_listing, (SELECT val FROM test_uuids WHERE key='user_b'),
-          'sale', 'active',
-          (SELECT val FROM test_uuids WHERE key='cromo2'),
+          'trade', 'active',
+          (SELECT val FROM test_uuids WHERE key='cromo3'),
           false, ARRAY['PUCE'])
   ON CONFLICT DO NOTHING;
   INSERT INTO test_uuids VALUES ('puce_listing', puce_listing) ON CONFLICT DO NOTHING;
@@ -754,21 +770,31 @@ BEGIN
 END;
 $$;
 
--- Try to update status as client (authenticated role)
+-- Try to update status as client (authenticated role).
+-- Transactions have no UPDATE RLS policy — the UPDATE silently affects 0 rows.
+-- R09-3 verifies the client CANNOT change status; mechanism is RLS (no rows matched)
+-- rather than the guard trigger (which would fire if RLS allowed the row through).
+-- We verify the outcome: status remains 'pending' after the attempted UPDATE.
 SELECT set_session_as((SELECT val FROM test_uuids WHERE key='user_a'));
 
-SELECT throws_ok(
+SELECT lives_ok(
   format($$
   UPDATE public.transactions
   SET status = 'accepted'
   WHERE id = '%s'
   $$, (SELECT val FROM test_uuids WHERE key='tx2_id')),
-  'P0001',  -- raise_exception from guard trigger
-  NULL,
-  'R09-3: client cannot update transactions.status (guard trigger fires)'
+  'R09-3: UPDATE attempt runs without exception (RLS blocks via no UPDATE policy)'
 );
 
 SELECT reset_session();
+
+-- Verify outcome: status unchanged (RLS prevented the write)
+RESET role;
+SELECT is(
+  (SELECT status FROM public.transactions WHERE id = (SELECT val FROM test_uuids WHERE key='tx2_id')),
+  'pending',
+  'R09-3: transactions.status is still pending — client UPDATE was silently blocked by RLS'
+);
 
 -- =============================================================================
 -- R03-2: profiles.university / is_anonymous / auction_blocked_until are
