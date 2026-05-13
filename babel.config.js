@@ -3,20 +3,15 @@ module.exports = function (api) {
   const isTest = api.env('test');
   api.cache.using(() => isTest);
 
-  const config = {
+  return {
     presets: [
       [
         'babel-preset-expo',
+        // NativeWind v4 needs jsxImportSource at the preset level for Metro,
+        // but jest-expo's transformer doesn't process className via NativeWind —
+        // so we skip the option in tests to avoid an unused-import edge case.
         isTest ? {} : { jsxImportSource: 'nativewind' },
       ],
     ],
-    plugins: [],
   };
-
-  // nativewind/babel is a bundler (Metro) plugin — skip it in Jest
-  if (!isTest) {
-    config.plugins.push('nativewind/babel');
-  }
-
-  return config;
 };
