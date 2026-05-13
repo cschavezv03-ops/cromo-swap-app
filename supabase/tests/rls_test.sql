@@ -2,6 +2,8 @@
 -- File:    supabase/tests/rls_test.sql
 -- Purpose: pgTAP RLS + constraint test suite for Phase 2 data model.
 --          Covers all scenarios from spec CAP-13 (R13-1 through R13-9).
+--          Updated by 0017_profile_contacts: phone tests moved from profiles
+--          to profile_contacts; new profile_contacts RLS assertions added.
 -- Run:     supabase test db  (requires pgtap extension from 0014)
 -- ⚠️  TEST ONLY — do NOT include in production migrate path ⚠️
 -- =============================================================================
@@ -9,7 +11,7 @@
 BEGIN;
 
 -- How many tests to expect (update this count when adding tests)
-SELECT plan(70);
+SELECT plan(57);
 
 -- =============================================================================
 -- HELPERS
@@ -38,18 +40,25 @@ BEGIN
     (guest_id, 'g@anon.invalid', now(), now(), '{}')
   ON CONFLICT (id) DO NOTHING;
 
-  -- Insert profiles
-  INSERT INTO public.profiles (id, display_name, university, scope, is_anonymous, whatsapp_phone)
+  -- Insert profiles (no whatsapp_phone here — it lives in profile_contacts now)
+  INSERT INTO public.profiles (id, display_name, university, scope, is_anonymous)
   VALUES
     -- User A: EPN, scope includes PUCE and UCE, normal user
-    (user_a,   'Test User A',   'EPN',  ARRAY['EPN','PUCE','UCE'], false, '+593991234567'),
+    (user_a,   'Test User A',   'EPN',  ARRAY['EPN','PUCE','UCE'], false),
     -- User B: PUCE, in A's scope
-    (user_b,   'Test User B',   'PUCE', ARRAY['PUCE','EPN'],       false, '+593997654321'),
+    (user_b,   'Test User B',   'PUCE', ARRAY['PUCE','EPN'],       false),
     -- User C: UCE, in A's scope
-    (user_c,   'Test User C',   'UCE',  ARRAY['UCE'],              false, NULL),
+    (user_c,   'Test User C',   'UCE',  ARRAY['UCE'],              false),
     -- Guest user (anonymous Supabase session)
-    (guest_id, 'Guest User',    NULL,   ARRAY[]::text[],           true,  NULL)
+    (guest_id, 'Guest User',    NULL,   ARRAY[]::text[],           true)
   ON CONFLICT (id) DO NOTHING;
+
+  -- Insert phone numbers into profile_contacts (new canonical location)
+  INSERT INTO public.profile_contacts (user_id, whatsapp_phone)
+  VALUES
+    (user_a, '+593991234567'),
+    (user_b, '+593997654321')
+  ON CONFLICT (user_id) DO NOTHING;
 
   -- Get two catalog cromo IDs for testing
   SELECT id INTO cromo1 FROM public.catalog_cromos LIMIT 1;
@@ -256,6 +265,14 @@ SELECT is(
   'R13-3: guest cannot see any auction bids'
 );
 
+-- Guest cannot see any profile_contacts rows (no accepted transactions possible)
+SELECT is(
+  (SELECT count(*)::int FROM public.profile_contacts
+   WHERE user_id <> (SELECT val FROM test_uuids WHERE key='guest_id')),
+  0,
+  'R13-3: guest cannot see others profile_contacts (no accepted tx possible)'
+);
+
 SELECT reset_session();
 
 -- =============================================================================
@@ -381,15 +398,21 @@ SELECT is(
 SELECT reset_session();
 
 -- =============================================================================
--- R13-6: WHATSAPP REVEAL — only via contact_info after accepted transaction
+-- R13-6: WHATSAPP REVEAL — only via contact_info / profile_contacts after
+--        accepted transaction. Phone now lives in profile_contacts table.
 -- =============================================================================
 
--- Direct select of whatsapp_phone on profiles — user A queries user B's profile
--- NOTE: Postgres RLS is row-level. User B's row IS visible to A (in scope).
--- But the app MUST NOT SELECT whatsapp_phone from profiles directly.
--- The test confirms the contact_info view returns 0 rows without an accepted tx.
+-- Without accepted transaction: user A cannot see user B's profile_contacts
 SELECT set_session_as((SELECT val FROM test_uuids WHERE key='user_a'));
 
+SELECT is(
+  (SELECT count(*)::int FROM public.profile_contacts
+   WHERE user_id = (SELECT val FROM test_uuids WHERE key='user_b')),
+  0,
+  'R13-6: profile_contacts returns 0 rows for non-counterparty (no accepted tx)'
+);
+
+-- contact_info view also returns 0 (inherits profile_contacts RLS)
 SELECT is(
   (SELECT count(*)::int FROM public.contact_info
    WHERE user_id = (SELECT val FROM test_uuids WHERE key='user_b')),
@@ -420,21 +443,29 @@ BEGIN
 END;
 $$;
 
--- Now A should see B's phone via contact_info (B has a whatsapp_phone set)
+-- Now A should see B's phone via profile_contacts (counterparty SELECT policy)
 SELECT set_session_as((SELECT val FROM test_uuids WHERE key='user_a'));
 
+SELECT is(
+  (SELECT count(*)::int FROM public.profile_contacts
+   WHERE user_id = (SELECT val FROM test_uuids WHERE key='user_b')),
+  1,
+  'R13-6: profile_contacts returns 1 row after accepted transaction exists'
+);
+
+SELECT isnt(
+  (SELECT whatsapp_phone FROM public.profile_contacts
+   WHERE user_id = (SELECT val FROM test_uuids WHERE key='user_b')),
+  NULL,
+  'R13-6: whatsapp_phone is non-null in profile_contacts after accepted tx'
+);
+
+-- contact_info view must also return 1 row (plain view, inherits RLS)
 SELECT is(
   (SELECT count(*)::int FROM public.contact_info
    WHERE user_id = (SELECT val FROM test_uuids WHERE key='user_b')),
   1,
   'R13-6: contact_info returns 1 row after accepted transaction exists'
-);
-
-SELECT isnt(
-  (SELECT whatsapp_phone FROM public.contact_info
-   WHERE user_id = (SELECT val FROM test_uuids WHERE key='user_b')),
-  NULL,
-  'R13-6: whatsapp_phone is non-null in contact_info after accepted tx'
 );
 
 SELECT reset_session();
@@ -502,39 +533,72 @@ SELECT throws_ok(
   'R13-8: price=-5 rejected by CHECK(price > 0)'
 );
 
--- Malformed phone (not E.164) rejected
+-- Malformed phone on profile_contacts (not E.164) rejected — no +country code
 SELECT throws_ok(
   $$
-  UPDATE public.profiles
-  SET whatsapp_phone = '0991234567'
-  WHERE id = (SELECT val FROM test_uuids WHERE key='user_a')
+  INSERT INTO public.profile_contacts (user_id, whatsapp_phone)
+  VALUES (
+    (SELECT val FROM test_uuids WHERE key='user_c'),
+    '0991234567'
+  )
   $$,
   23514,
   NULL,
-  'R13-8: malformed E.164 phone (0991234567) rejected by CHECK constraint'
+  'R13-8: malformed E.164 phone (0991234567) rejected by CHECK on profile_contacts'
 );
 
--- Another malformed format
+-- Another malformed format — +0 is not valid (must be +[1-9])
 SELECT throws_ok(
   $$
-  UPDATE public.profiles
-  SET whatsapp_phone = '+0991234567'
-  WHERE id = (SELECT val FROM test_uuids WHERE key='user_a')
+  INSERT INTO public.profile_contacts (user_id, whatsapp_phone)
+  VALUES (
+    (SELECT val FROM test_uuids WHERE key='user_c'),
+    '+0991234567'
+  )
   $$,
   23514,
   NULL,
-  'R13-8: malformed E.164 phone (+0991234567 starts with +0) rejected'
+  'R13-8: malformed E.164 phone (+0991234567 starts with +0) rejected on profile_contacts'
 );
 
--- Valid E.164 accepted (no exception)
+-- Valid E.164 accepted (no exception) — user C has no profile_contacts row yet
 SELECT lives_ok(
   $$
-  UPDATE public.profiles
-  SET whatsapp_phone = '+593991234567'
-  WHERE id = (SELECT val FROM test_uuids WHERE key='user_a')
+  INSERT INTO public.profile_contacts (user_id, whatsapp_phone)
+  VALUES (
+    (SELECT val FROM test_uuids WHERE key='user_c'),
+    '+59398765432'
+  )
   $$,
-  'R13-8: valid E.164 phone (+593991234567) accepted'
+  'R13-8: valid E.164 phone (+59398765432) accepted on profile_contacts'
 );
+
+-- =============================================================================
+-- profile_contacts RLS: owner can SELECT their own row
+-- =============================================================================
+
+SELECT set_session_as((SELECT val FROM test_uuids WHERE key='user_a'));
+
+SELECT is(
+  (SELECT count(*)::int FROM public.profile_contacts
+   WHERE user_id = (SELECT val FROM test_uuids WHERE key='user_a')),
+  1,
+  'profile_contacts owner SELECT: user A can see their own row'
+);
+
+SELECT reset_session();
+
+-- profile_contacts RLS: non-counterparty cannot see another user's row
+SELECT set_session_as((SELECT val FROM test_uuids WHERE key='user_c'));
+
+SELECT is(
+  (SELECT count(*)::int FROM public.profile_contacts
+   WHERE user_id = (SELECT val FROM test_uuids WHERE key='user_a')),
+  0,
+  'profile_contacts non-counterparty: user C cannot see user A phone (no accepted tx)'
+);
+
+SELECT reset_session();
 
 -- =============================================================================
 -- R13-9: NO DOUBLE-LISTING — cromo in active package cannot be individually listed

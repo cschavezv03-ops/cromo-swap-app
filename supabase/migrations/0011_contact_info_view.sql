@@ -7,6 +7,15 @@
 -- Deps:      0004 (profiles, private.has_accepted_transaction), 0010 (transactions)
 -- Phase:     2 – Data Model & Security Core
 --
+-- ⚠️  SUPERSEDED BY 0017_profile_contacts.sql (security fix — W2):
+--   Migration 0017 moves whatsapp_phone from public.profiles into a separate
+--   public.profile_contacts table with its own RLS (DB-enforced phone privacy,
+--   not convention-only). It drops this view and recreates contact_info as a
+--   plain security-invoker view over profile_contacts. The SQL statements in
+--   THIS file (0011) are NOT to be modified — migrations are append-only.
+--   See 0017 for the authoritative definition of contact_info and the phone
+--   reveal mechanism.
+--
 -- Security model:
 --   - View created with (security_barrier = true) to prevent predicate
 --     push-down leaks.

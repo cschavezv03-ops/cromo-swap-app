@@ -24,6 +24,7 @@ All schema changes go through migrations in `supabase/migrations/`. Never run ad
 | `0014_enable_pgtap.sql` | Enables `pgtap` extension — **test/dev environments only** |
 | `0015_listings_no_double_listing_individual.sql` | Closes the `individual→package` double-listing gap: `BEFORE INSERT` + `BEFORE UPDATE OF cromo_id,status,kind` trigger on `listings` raising P0001 when a cromo already in an active package is individually listed |
 | `0016_fk_indexes.sql` | Adds btree indexes on `catalog_cromos(country)`, `catalog_cromos(rarity)`, `transactions(offered_cromo_id)` — flagged by `get_advisors(performance)` as unindexed FKs |
+| `0017_profile_contacts.sql` | **Security fix (W2)**: moves `whatsapp_phone` out of `profiles` into a new `profile_contacts` table with its own RLS. Owner has full CRUD; counterparties with an accepted transaction get SELECT only. Drops the old SECURITY DEFINER `contact_info` view and recreates it as a plain `security_invoker = true` view over `profile_contacts`. Removes the advisor warning for `contact_info`. |
 
 ## How to apply
 
@@ -45,25 +46,26 @@ supabase/tests/rls_test.sql
 
 **Run**: `supabase test db`
 
-Covers R13-1 through R13-9 from the Phase 2 spec:
+Covers R13-1 through R13-9 from the Phase 2 spec (57 assertions, `plan(57)`):
 - Deny-by-default on every table
-- Guest lockout (listings/transactions/auction_bids/others' inventory/others' profiles)
+- Guest lockout (listings/transactions/auction_bids/others' inventory/others' profiles, profile_contacts)
 - Block invisibility (symmetric, both directions)
 - Out-of-scope private listing hidden
-- WhatsApp only via `contact_info` after accepted transaction
+- WhatsApp via `profile_contacts` table + `contact_info` view — only after accepted transaction (DB-enforced via RLS, not convention)
+- `profile_contacts` owner CRUD; non-counterparty isolation; guest isolation
 - Reservation unique index rejects second active individual listing
-- Price CHECK (>0), E.164 phone CHECK
+- Price CHECK (>0); E.164 phone CHECK on `profile_contacts`
 - No double-listing: **both directions now covered** — package→individual (0008 trigger on `listing_packages`) AND individual→package (0015 trigger on `listings`)
 
 `0014_enable_pgtap.sql` must be applied before running tests (dev/staging only).
 
-## Post-apply checklist (after all 16 migrations are applied)
+## Post-apply checklist (after all 17 migrations are applied)
 
-1. Run `mcp__supabase__get_advisors` (security level) — MUST return zero warnings
-2. Run `mcp__supabase__get_advisors` (performance level) — MUST return zero warnings
-3. Run `mcp__supabase__list_tables` — verify all 11 tables + 3 views present
-4. Run `supabase test db` — all pgTAP tests green
-5. Run `mcp__supabase__generate_typescript_types` → overwrite `src/types/database.ts` (replaces Phase-1 placeholder) and commit
+1. Run `mcp__supabase__get_advisors` (security level) — 2 intentional SECURITY DEFINER VIEW warnings remain (`matches`, `cromo_with_country_rarity`); `contact_info` warning is GONE (0017).
+2. Run `mcp__supabase__get_advisors` (performance level) — MUST return zero unexpected warnings
+3. Run `mcp__supabase__list_tables` — verify all 12 tables + 3 views present (`profile_contacts` added)
+4. Run `supabase test db` — all 57 pgTAP tests green
+5. Run `mcp__supabase__generate_typescript_types` → overwrite `src/types/database.ts` and commit
 
 ## Security model summary
 
@@ -71,22 +73,23 @@ Covers R13-1 through R13-9 from the Phase 2 spec:
 - **Service-role key**: server-only (Edge Functions). Never in client-reachable code.
 - **`(SELECT auth.uid())`** subselect in every policy (never bare `auth.uid()`).
 - **`private.*` helpers**: SECURITY DEFINER, `SET search_path = ''`, fully-qualified bodies, REVOKE/GRANT.
-- **WhatsApp reveal**: `contact_info` view is the ONLY mechanism. Client must never `SELECT whatsapp_phone FROM profiles`.
+- **WhatsApp reveal**: `whatsapp_phone` lives in `profile_contacts` table, RLS-gated to owner + accepted-transaction counterparties. `contact_info` is a plain `security_invoker = true` view over it — the canonical API surface. Client must never query `profiles` for a phone number (the column no longer exists there as of 0017).
 - **Reservation lock**: partial UNIQUE index on `listings(cromo_id) WHERE status='active' AND kind IN ('trade','sale','auction')` + `SELECT FOR UPDATE` in the accept Edge Fn (Phase 5).
 - **Guest isolation**: `private.is_guest()` reads `is_anonymous` JWT claim; guests cannot see any social surface.
 - **Block symmetry**: `private.is_blocked(a,b)` checks both directions; enforced in all policies.
 
 ## Security advisor notes
 
-The `get_advisors(security)` tool flags `matches`, `contact_info`, and `cromo_with_country_rarity` as SECURITY DEFINER views. All three are **intentional**:
+The `get_advisors(security)` tool flags **2** SECURITY DEFINER views (down from 3 after 0017):
 
-- `contact_info`: MUST run as owner (postgres) to read `whatsapp_phone` while the caller's RLS on `profiles` would not expose it. The `WHERE` clause (`has_accepted_transaction`) is the gate. `security_barrier=true` prevents predicate push-down. Required by design — see §3.5 WhatsApp reveal.
 - `matches`: calls `private.is_guest()`, `private.is_blocked()`, `private.in_scope()` — all SECURITY DEFINER helpers that require owner rights. `security_barrier=true` is set. Required by design — see §5 matches.
 - `cromo_with_country_rarity`: Postgres views default to SECURITY DEFINER (run as owner). The underlying tables have open SELECT policies (`anon, authenticated`). No sensitive data. Acceptable.
+
+`contact_info` is **no longer flagged** — migration 0017 recreated it with `security_invoker = true` as a plain view over `profile_contacts`. The underlying table's RLS (`profile_contacts_owner_select` + `profile_contacts_counterparty_select`) is the enforcement mechanism.
 
 ## Known open items
 
 - PUCE email domain: `puce.edu.ec` is used; satellite campus variants (`pucesa.edu.ec`, `pucesi.edu.ec`) TBD. The `email_domain` column is `NULLABLE` to handle this. Confirm in Phase 3.
 - `matches` view performance: if average query time > 500ms at scale, migrate to an Edge Function (Phase 10 review).
-- `whatsapp_phone` column-level hiding: Postgres RLS is row-level. The `contact_info` view is the canonical reveal path. If stricter column-level hiding is needed, split `whatsapp_phone` to a `profile_contacts` table (Phase 3 follow-up).
+- `whatsapp_phone` column-level hiding: **CLOSED by 0017**. The phone now lives in `profile_contacts` with its own RLS (owner + accepted-transaction counterparty). DB-enforced, not convention-only. Verify finding W2 is resolved.
 - `language sql` vs `language plpgsql` for private helpers: functions that reference tables not yet created at function-creation time use `plpgsql` for deferred body validation. This is documented in `0004_profiles.sql`. The `language sql` versions in the migration files were updated to `plpgsql` to match what was actually applied.
