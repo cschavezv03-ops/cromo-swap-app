@@ -1,9 +1,10 @@
-import React, { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
+import React, { createContext, useContext, useEffect, useRef, useState, type ReactNode } from 'react';
 import type { Session } from '@supabase/supabase-js';
 import { supabase } from './supabase';
 import { signInAsGuest as _signInAsGuest, signOut as _signOut } from './auth';
 import { getMyProfile, getMyContact } from './profile';
 import { onboardingStep, needsOnboarding, type OnboardingStep } from './onboarding';
+import { queryClient } from './query-client';
 import type { Database } from '@/types/database';
 
 type ProfileRow = Database['public']['Tables']['profiles']['Row'];
@@ -44,6 +45,8 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   const [sessionResolved, setSessionResolved] = useState(false);
   const [profile, setProfile] = useState<ProfileRow | null>(null);
   const [contact, setContact] = useState<ContactRow | null>(null);
+  // Track previous user.id to detect cross-user identity changes (shared device)
+  const sessionRef = useRef<Session | null>(null);
 
   const loadProfile = async (sess: Session | null) => {
     if (!sess || sess.user.is_anonymous) {
@@ -74,12 +77,20 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     supabase.auth.getSession().then(async ({ data }) => {
       const sess = data.session ?? null;
       setSession(sess);
+      sessionRef.current = sess;
       await loadProfile(sess);
       setSessionResolved(true);
     });
 
     // Listen for auth state changes
     const { data: listener } = supabase.auth.onAuthStateChange(async (_event, newSession) => {
+      const prevId = sessionRef.current?.user.id ?? null;
+      const nextId = newSession?.user.id ?? null;
+      // Clear cache on any identity change (cross-user or sign-out) BEFORE loading new profile
+      if (prevId !== nextId) {
+        queryClient.clear();
+      }
+      sessionRef.current = newSession;
       setSession(newSession);
       await loadProfile(newSession);
       setSessionResolved(true);
@@ -104,9 +115,11 @@ export function SessionProvider({ children }: { children: ReactNode }) {
 
   const signOut = async () => {
     await _signOut();
+    queryClient.clear(); // nuke all cached data before zeroing local state
     setSession(null);
     setProfile(null);
     setContact(null);
+    sessionRef.current = null;
   };
 
   const isGuest = session?.user?.is_anonymous ?? false;
