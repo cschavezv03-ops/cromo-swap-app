@@ -33,7 +33,9 @@ export default function Welcome() {
     setGuestLoading(true);
     try {
       await signInAsGuest();
-      // Navigation is handled by the session context → index.tsx redirect
+      // We're on /welcome, not /, so the index.tsx redirect doesn't fire.
+      // Explicitly route to the album once the anon session is established.
+      router.replace('/(tabs)/album');
     } finally {
       setGuestLoading(false);
     }
@@ -96,6 +98,21 @@ export default function Welcome() {
               <Text style={styles.btnGhostText}>Probar sin cuenta (solo tracking)</Text>
             )}
           </TouchableOpacity>
+
+          {/* Returning user: same destination, different intent — Supabase's
+              signInWithOtp handles both new signups and existing-user logins. */}
+          <View style={styles.signinRow}>
+            <Text style={styles.signinHint}>¿Ya tenés cuenta?</Text>
+            <TouchableOpacity
+              onPress={() => router.push('/onboarding/email')}
+              activeOpacity={0.6}
+              accessibilityRole="link"
+              accessibilityLabel="Iniciar sesión con tu correo universitario"
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            >
+              <Text style={styles.signinLink}>Iniciar sesión</Text>
+            </TouchableOpacity>
+          </View>
         </View>
 
         {/* Disclaimer */}
@@ -223,6 +240,23 @@ const styles = StyleSheet.create({
     color: C.ink,
     fontSize: 15,
     fontWeight: '700',
+    letterSpacing: -0.1,
+  },
+  signinRow: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: spacing[2],
+    marginTop: spacing[3],
+  },
+  signinHint: {
+    fontSize: 13,
+    color: C.muted,
+  },
+  signinLink: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: C.accent,
     letterSpacing: -0.1,
   },
   disclaimer: {

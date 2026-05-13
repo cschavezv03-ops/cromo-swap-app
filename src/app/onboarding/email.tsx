@@ -107,18 +107,20 @@ export default function OnboardingEmail() {
 
           <View style={styles.content}>
             {/* Badge */}
-            <Text style={styles.badge}>{isUpgrade ? '◉ Crear cuenta' : '◉ Registro'}</Text>
+            <Text style={styles.badge}>
+              {isUpgrade ? '◉ Crear cuenta' : '◉ Tu correo'}
+            </Text>
 
             {/* Heading */}
             <Text style={styles.heading}>
               {isUpgrade ? 'Convertí tu cuenta\nde invitado' : 'Tu correo\nuniversitario'}
             </Text>
 
-            {/* Sub-copy */}
+            {/* Sub-copy — neutral for both first signup and returning login */}
             <Text style={styles.sub}>
               {isUpgrade
                 ? 'Ingresá tu correo institucional para activar tu cuenta. Tu álbum y colección se preservan.'
-                : 'Tu correo confirma tu universidad y te da el sello verificado.'}
+                : 'Te enviamos un código a tu correo. Si ya tenés cuenta, iniciás sesión; si no, te creamos una con tu universidad.'}
             </Text>
 
             {/* Email field */}
