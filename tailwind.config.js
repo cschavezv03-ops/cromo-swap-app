@@ -1,0 +1,66 @@
+/** @type {import('tailwindcss').Config} */
+module.exports = {
+  content: ['./src/**/*.{ts,tsx}'],
+  presets: [require('nativewind/preset')],
+  theme: {
+    extend: {
+      colors: {
+        // C palette
+        paper: '#F7F4ED',
+        paper2: '#EEEAE0',
+        card: '#FFFFFF',
+        ink: '#15140F',
+        ink2: '#3A372F',
+        muted: '#7A766B',
+        faint: '#B8B3A6',
+        hairline: '#E5E0D2',
+        accent: '#1F5E3F',
+        accentSoft: '#E2EBE3',
+        hot: '#C73E1D',
+        hotSoft: '#F7E2DA',
+        gold: '#B8862C',
+        legend: '#1F1B14',
+        // Rarity colors
+        rarity: {
+          comun: '#E8E5DE',
+          poco: '#E0EBE3',
+          raro: '#E4E9F2',
+          muyraro: '#EEE5F0',
+          especial: '#F5E6D3',
+          legendario: '#1F1B14',
+        },
+      },
+      fontFamily: {
+        manrope: ['Manrope_400Regular'],
+        'manrope-medium': ['Manrope_500Medium'],
+        'manrope-semibold': ['Manrope_600SemiBold'],
+        'manrope-bold': ['Manrope_700Bold'],
+        'manrope-extrabold': ['Manrope_800ExtraBold'],
+        mono: ['JetBrainsMono_400Regular'],
+        serif: ['InstrumentSerif_400Regular'],
+      },
+      spacing: {
+        1: '4px',
+        2: '8px',
+        3: '12px',
+        4: '16px',
+        5: '20px',
+        6: '24px',
+        8: '32px',
+        10: '40px',
+        12: '48px',
+        16: '64px',
+      },
+      borderRadius: {
+        sm: '4px',
+        DEFAULT: '8px',
+        md: '8px',
+        lg: '12px',
+        xl: '16px',
+        '2xl': '24px',
+        full: '9999px',
+      },
+    },
+  },
+  plugins: [],
+};
