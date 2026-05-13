@@ -1,8 +1,9 @@
-import React from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   View,
   TouchableOpacity,
   StyleSheet,
+  ActivityIndicator,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -17,15 +18,43 @@ import { C, spacing, radii } from '@/theme';
  * Shows the university derived server-side from the confirmed email.
  * "Tu universidad: EPN" with a color chip. User taps "Continuar" → /onboarding/whatsapp.
  *
- * If university is unexpectedly null, routes back to email with an error.
+ * If university is unexpectedly null on mount, refreshProfile() one more time
+ * and wait up to ~3s for the trigger-derived value to land before showing the
+ * "not found" error. This covers the race where the screen renders before
+ * onAuthStateChange has propagated the post-verify profile state.
  *
  * Design: centered confirmation card with university color chip, "Continuar" CTA.
  */
 export default function OnboardingUniversity() {
   const router = useRouter();
-  const { profile } = useSession();
+  const { profile, refreshProfile } = useSession();
 
   const university = profile?.university ?? null;
+  const [waiting, setWaiting] = useState(university === null);
+  const triedRef = useRef(false);
+
+  useEffect(() => {
+    if (university !== null) {
+      setWaiting(false);
+      return;
+    }
+    if (triedRef.current) return;
+    triedRef.current = true;
+    let cancelled = false;
+    (async () => {
+      await refreshProfile();
+      // Give onAuthStateChange / state propagation up to ~3s
+      const deadline = Date.now() + 3000;
+      while (Date.now() < deadline) {
+        await new Promise((r) => setTimeout(r, 400));
+        if (cancelled) return;
+      }
+      if (!cancelled) setWaiting(false);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [university, refreshProfile]);
 
   const handleContinue = () => {
     router.replace('/onboarding/whatsapp');
@@ -49,7 +78,12 @@ export default function OnboardingUniversity() {
       <View style={styles.content}>
         <Text style={styles.badge}>◉ Universidad verificada</Text>
 
-        {university ? (
+        {university === null && waiting ? (
+          <View style={styles.loadingBlock}>
+            <ActivityIndicator size="large" color={C.accent} />
+            <Text style={styles.loadingText}>Verificando tu universidad…</Text>
+          </View>
+        ) : university ? (
           <>
             <Text style={styles.heading}>¡Tu universidad{'\n'}fue confirmada!</Text>
 
@@ -175,5 +209,14 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '700',
     letterSpacing: -0.1,
+  },
+  loadingBlock: {
+    alignItems: 'center',
+    paddingVertical: spacing[6],
+    gap: spacing[3],
+  },
+  loadingText: {
+    fontSize: 14,
+    color: C.muted,
   },
 });

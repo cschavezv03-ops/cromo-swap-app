@@ -27,17 +27,25 @@ const SessionContext = createContext<SessionContextValue | null>(null);
 
 /**
  * Poll for profile up to maxAttempts × delayMs.
- * The handle_email_confirmed trigger writes the profile a beat after the session appears.
+ * The handle_email_confirmed trigger writes the profile a beat after the session
+ * appears, AND for non-anonymous users we additionally wait for `university` to
+ * be populated by the same trigger — otherwise a fresh signup can render the
+ * university-confirmation screen before derivation has propagated to the client.
  */
-async function fetchProfileWithRetry(maxAttempts = 3, delayMs = 500): Promise<ProfileRow | null> {
+async function fetchProfileWithRetry(maxAttempts = 6, delayMs = 400): Promise<ProfileRow | null> {
+  let lastSeen: ProfileRow | null = null;
   for (let i = 0; i < maxAttempts; i++) {
     const profile = await getMyProfile();
-    if (profile !== null) return profile;
+    if (profile !== null) {
+      lastSeen = profile;
+      // Guests don't need a university; registered users do — keep polling.
+      if (profile.is_anonymous || profile.university !== null) return profile;
+    }
     if (i < maxAttempts - 1) {
       await new Promise((r) => setTimeout(r, delayMs));
     }
   }
-  return null;
+  return lastSeen;
 }
 
 export function SessionProvider({ children }: { children: ReactNode }) {
@@ -102,7 +110,19 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   }, []); // intentionally mount-only: loadProfile is a closure over setters which are stable
 
   const refreshProfile = async () => {
-    await loadProfile(session);
+    // ALWAYS pull the freshest session from supabase rather than relying on
+    // the closure-captured React `session` state. After verifyOtp() the new
+    // session is mid-flight via onAuthStateChange — the React state can lag
+    // by a tick, which made refreshProfile(null) overwrite the new profile
+    // with null and bounced the user to the "no university" error.
+    const { data } = await supabase.auth.getSession();
+    const latest = data.session ?? null;
+    if (sessionRef.current?.user.id !== latest?.user.id) {
+      queryClient.clear();
+    }
+    sessionRef.current = latest;
+    setSession(latest);
+    await loadProfile(latest);
   };
 
   const signInAsGuest = async () => {
