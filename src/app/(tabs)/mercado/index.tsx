@@ -1,25 +1,29 @@
 import React from 'react';
 import { View, StyleSheet } from 'react-native';
-import { Screen, Text } from '@/components';
+import { Screen, Text, RegisterPrompt } from '@/components';
 import { useSession } from '@/lib/session-context';
 import { C, spacing } from '@/theme';
 
 /**
  * Mercado tab — requires registered session.
- * No data fetching in Phase 1. Pixel-perfect is Phase 6 (Direct Sales).
+ * Guests see RegisterPrompt; registered users see placeholder (real content is Phase 6).
  */
 export default function MercadoScreen() {
   const { isGuest } = useSession();
+
+  if (isGuest) {
+    return (
+      <Screen>
+        <RegisterPrompt feature="el mercado y subastas" />
+      </Screen>
+    );
+  }
 
   return (
     <Screen>
       <View style={styles.container}>
         <Text style={styles.title}>Mercado</Text>
-        {isGuest ? (
-          <Text style={styles.body}>Registrate para ver ventas y subastas.</Text>
-        ) : (
-          <Text style={styles.body}>Las publicaciones del mercado aparecerán aquí. (Próximamente)</Text>
-        )}
+        <Text style={styles.body}>Las publicaciones del mercado aparecerán aquí. (Próximamente)</Text>
       </View>
     </Screen>
   );

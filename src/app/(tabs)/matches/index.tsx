@@ -1,25 +1,29 @@
 import React from 'react';
 import { View, StyleSheet } from 'react-native';
-import { Screen, Text } from '@/components';
+import { Screen, Text, RegisterPrompt } from '@/components';
 import { useSession } from '@/lib/session-context';
 import { C, spacing } from '@/theme';
 
 /**
  * Matches tab — requires registered session.
- * No data fetching in Phase 1. Pixel-perfect is Phase 5 (Matches & Trades).
+ * Guests see RegisterPrompt; registered users see placeholder (real content is Phase 5).
  */
 export default function MatchesScreen() {
   const { isGuest } = useSession();
+
+  if (isGuest) {
+    return (
+      <Screen>
+        <RegisterPrompt feature="matches e intercambios" />
+      </Screen>
+    );
+  }
 
   return (
     <Screen>
       <View style={styles.container}>
         <Text style={styles.title}>Matches</Text>
-        {isGuest ? (
-          <Text style={styles.body}>Registrate para ver tus matches y hacer swaps.</Text>
-        ) : (
-          <Text style={styles.body}>Tus matches aparecerán aquí. (Próximamente)</Text>
-        )}
+        <Text style={styles.body}>Tus matches aparecerán aquí. (Próximamente)</Text>
       </View>
     </Screen>
   );

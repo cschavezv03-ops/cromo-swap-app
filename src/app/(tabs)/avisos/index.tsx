@@ -1,25 +1,29 @@
 import React from 'react';
 import { View, StyleSheet } from 'react-native';
-import { Screen, Text } from '@/components';
+import { Screen, Text, RegisterPrompt } from '@/components';
 import { useSession } from '@/lib/session-context';
 import { C, spacing } from '@/theme';
 
 /**
  * Avisos tab — requires registered session.
- * No data fetching in Phase 1. Pixel-perfect is Phase 8 (Notifications & Profile).
+ * Guests see RegisterPrompt; registered users see placeholder (real content is Phase 8).
  */
 export default function AvisosScreen() {
   const { isGuest } = useSession();
+
+  if (isGuest) {
+    return (
+      <Screen>
+        <RegisterPrompt feature="avisos y notificaciones" />
+      </Screen>
+    );
+  }
 
   return (
     <Screen>
       <View style={styles.container}>
         <Text style={styles.title}>Avisos</Text>
-        {isGuest ? (
-          <Text style={styles.body}>Registrate para recibir notificaciones.</Text>
-        ) : (
-          <Text style={styles.body}>Tus notificaciones aparecerán aquí. (Próximamente)</Text>
-        )}
+        <Text style={styles.body}>Tus notificaciones aparecerán aquí. (Próximamente)</Text>
       </View>
     </Screen>
   );
