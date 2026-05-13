@@ -87,9 +87,12 @@ export default function OnboardingVerify() {
       }
 
       // Refresh profile — the handle_email_confirmed trigger may take a moment
+      // to derive university from the verified email domain.
       await refreshProfile();
-      // The onboarding layout re-evaluates onboardingStep and routes to next step (university/whatsapp)
-      router.replace('/onboarding');
+      // Direct navigation to the transient university-confirmation screen.
+      // (The onboardingStep state machine skips this — it's a UX-only step
+      // shown once between OTP success and WhatsApp capture.)
+      router.replace('/onboarding/university');
     } finally {
       setLoading(false);
     }

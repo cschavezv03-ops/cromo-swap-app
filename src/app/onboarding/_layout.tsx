@@ -3,38 +3,42 @@ import { Stack, useRouter, useSegments } from 'expo-router';
 import { useSession } from '@/lib/session-context';
 
 /**
- * Onboarding stack layout with route guard.
+ * Onboarding stack layout — three zones:
  *
- * Two zones inside /onboarding:
  *   PRE-SESSION (email, verify) — entry points; the user does not have a
- *     session yet. The layout MUST NOT bounce them away just because !session.
- *     Only bounce if they're already fully onboarded (no business here).
- *   POST-SESSION (university, whatsapp, scope) — require a session, and
- *     route to the correct step based on session.onboardingStep.
+ *     session yet. Don't enforce session here, don't auto-route away.
+ *     Only bounce if the user is already fully onboarded.
  *
- * A guest who taps "Crear cuenta" lands on /onboarding/email to upgrade;
- * we let them stay (the upgrade is `supabase.auth.updateUser({ email })`).
+ *   ROUTING ROOT (bare /onboarding) — when navigation lands here with no
+ *     specific step (e.g. after a state change), route to the correct step
+ *     based on `onboardingStep`.
+ *
+ *   STEP SCREENS (university, whatsapp, scope) — require a session and an
+ *     in-progress onboarding. Don't auto-redirect WITHIN these (each step
+ *     handles its own navigation to the next one); only kick the user out
+ *     if they shouldn't be in onboarding at all (no session / already done).
  */
 export default function OnboardingLayout() {
   const router = useRouter();
   const segments = useSegments();
   const { session, isGuest, needsOnboarding, onboardingStep } = useSession();
 
-  // segments looks like ['onboarding'] at /onboarding, or ['onboarding','email']
-  // at /onboarding/email. Take the last one as the current step.
+  // segments looks like ['onboarding'] at the bare /onboarding, or
+  // ['onboarding','email'] at /onboarding/email. Take the last one.
   const current = segments[segments.length - 1] ?? '';
-  const isPreSession = current === 'email' || current === 'verify' || current === 'onboarding';
+  const isPreSession = current === 'email' || current === 'verify';
+  const isRoutingRoot = current === 'onboarding';
 
   useEffect(() => {
+    // Pre-session entry points — allow no-session access.
     if (isPreSession) {
-      // Already fully onboarded? Get out of onboarding.
       if (session && !isGuest && !needsOnboarding) {
         router.replace('/(tabs)/album');
       }
       return;
     }
 
-    // Post-session steps from here on.
+    // Post-session zone (routing root + step screens). All require a session.
     if (!session) {
       router.replace('/welcome');
       return;
@@ -48,15 +52,16 @@ export default function OnboardingLayout() {
       return;
     }
 
-    // Registered + needsOnboarding → ensure we're on the right step
-    if (onboardingStep === 'whatsapp' && current !== 'whatsapp') {
-      router.replace('/onboarding/whatsapp');
-    } else if (onboardingStep === 'scope' && current !== 'scope') {
-      router.replace('/onboarding/scope');
-    } else if (onboardingStep === 'done') {
-      router.replace('/(tabs)/album');
+    // Only the routing root auto-redirects to the correct step. The step
+    // screens themselves (university/whatsapp/scope) handle their own
+    // navigation forward — the layout doesn't second-guess them.
+    if (isRoutingRoot) {
+      if (onboardingStep === 'email') router.replace('/onboarding/email');
+      else if (onboardingStep === 'whatsapp') router.replace('/onboarding/whatsapp');
+      else if (onboardingStep === 'scope') router.replace('/onboarding/scope');
+      else if (onboardingStep === 'done') router.replace('/(tabs)/album');
     }
-  }, [session, isGuest, needsOnboarding, onboardingStep, current, isPreSession, router]);
+  }, [session, isGuest, needsOnboarding, onboardingStep, isPreSession, isRoutingRoot, router]);
 
   return <Stack screenOptions={{ headerShown: false }} />;
 }
