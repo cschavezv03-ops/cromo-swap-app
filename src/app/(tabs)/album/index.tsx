@@ -35,6 +35,7 @@ import {
   ActivityIndicator,
   RefreshControl,
   StyleSheet,
+  useWindowDimensions,
 } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 import { Screen, RegisterPrompt } from '@/components';
@@ -173,24 +174,39 @@ function CountryChip({ flag, code, selected, onPress }: CountryChipProps) {
 }
 
 // ── Section grid (4-col for "all+all" view, 3-col for filtered view) ──────────
+// Explicit row chunking — DO NOT use flexWrap. RN's flexWrap + per-child width
+// reliably squishes children into one row on some Android configs. Manual rows
+// of {flexDirection:'row'} with explicit child widths is bulletproof.
 
 interface SectionGridProps {
   section: AlbumSection;
   onCardPress: (cromo: AlbumCromo) => void;
-  /** 4-col sm cards when true; 3-col md cards when false */
   compact: boolean;
+  cardWidth: number;
+  cardHeight: number;
+}
+
+function chunk<T>(arr: T[], size: number): T[][] {
+  const out: T[][] = [];
+  for (let i = 0; i < arr.length; i += size) out.push(arr.slice(i, i + size));
+  return out;
 }
 
 const SectionGrid = React.memo(function SectionGrid({
   section,
   onCardPress,
   compact,
+  cardWidth,
+  cardHeight,
 }: SectionGridProps) {
   const cardSize = compact ? 'sm' : 'md';
+  const cols = compact ? 4 : 3;
+  const gap = compact ? 10 : 12;
+  const rowGap = compact ? 12 : 14;
+  const rows = chunk(section.cromos, cols);
 
   return (
     <View style={styles.sectionBlock}>
-      {/* Section header */}
       <SectionHeader
         flagEmoji={section.country.flag_emoji}
         countryCode={section.country.code}
@@ -200,20 +216,32 @@ const SectionGrid = React.memo(function SectionGrid({
         accent={section.country.accent}
       />
 
-      {/* Card grid */}
-      <View
-        style={[
-          styles.grid,
-          compact ? styles.grid4col : styles.grid3col,
-        ]}
-      >
-        {section.cromos.map((cromo) => (
-          <CromoCard
-            key={cromo.id}
-            cromo={cromo}
-            size={cardSize}
-            onPress={() => onCardPress(cromo)}
-          />
+      <View style={{ paddingHorizontal: 20, paddingTop: 8, paddingBottom: 4 }}>
+        {rows.map((row, rowIdx) => (
+          <View
+            key={rowIdx}
+            style={{
+              flexDirection: 'row',
+              gap,
+              marginBottom: rowIdx < rows.length - 1 ? rowGap : 0,
+            }}
+          >
+            {row.map((cromo) => (
+              <CromoCard
+                key={cromo.id}
+                cromo={cromo}
+                size={cardSize}
+                width={cardWidth}
+                height={cardHeight}
+                onPress={() => onCardPress(cromo)}
+              />
+            ))}
+            {/* Spacers to keep last row's cards left-aligned */}
+            {row.length < cols &&
+              Array.from({ length: cols - row.length }).map((_, i) => (
+                <View key={`spacer-${i}`} style={{ width: cardWidth }} />
+              ))}
+          </View>
         ))}
       </View>
     </View>
@@ -225,18 +253,42 @@ const SectionGrid = React.memo(function SectionGrid({
 interface FlatGridProps {
   cromos: AlbumCromo[];
   onCardPress: (cromo: AlbumCromo) => void;
+  cardWidth: number;
+  cardHeight: number;
 }
 
-function FlatGrid({ cromos, onCardPress }: FlatGridProps) {
+function FlatGrid({ cromos, onCardPress, cardWidth, cardHeight }: FlatGridProps) {
+  const cols = 3;
+  const gap = 12;
+  const rowGap = 14;
+  const rows = chunk(cromos, cols);
+
   return (
-    <View style={[styles.grid, styles.grid3col, styles.flatGridPadding]}>
-      {cromos.map((cromo) => (
-        <CromoCard
-          key={cromo.id}
-          cromo={cromo}
-          size="md"
-          onPress={() => onCardPress(cromo)}
-        />
+    <View style={{ paddingHorizontal: 20, paddingTop: 8, paddingBottom: 4 }}>
+      {rows.map((row, rowIdx) => (
+        <View
+          key={rowIdx}
+          style={{
+            flexDirection: 'row',
+            gap,
+            marginBottom: rowIdx < rows.length - 1 ? rowGap : 0,
+          }}
+        >
+          {row.map((cromo) => (
+            <CromoCard
+              key={cromo.id}
+              cromo={cromo}
+              size="md"
+              width={cardWidth}
+              height={cardHeight}
+              onPress={() => onCardPress(cromo)}
+            />
+          ))}
+          {row.length < cols &&
+            Array.from({ length: cols - row.length }).map((_, i) => (
+              <View key={`spacer-${i}`} style={{ width: cardWidth }} />
+            ))}
+        </View>
       ))}
     </View>
   );
@@ -259,6 +311,23 @@ export default function AlbumScreen() {
   const { sections, stats, isLoading, isRefetching, refetch } = useAlbum();
   const { status, country, setStatus, setCountry } = useAlbumFilters();
   const [selectedCromo, setSelectedCromo] = useState<AlbumCromo | null>(null);
+
+  // ── Card dimensions computed from screen — guarantees 4 (or 3) per row ───
+  const { width: screenWidth } = useWindowDimensions();
+  const cardSm = useMemo(() => {
+    const cols = 4;
+    const gap = 10;
+    const horizPadding = 20;
+    const w = Math.floor((screenWidth - horizPadding * 2 - gap * (cols - 1)) / cols);
+    return { width: w, height: Math.round((w * 100) / 72) };
+  }, [screenWidth]);
+  const cardMd = useMemo(() => {
+    const cols = 3;
+    const gap = 12;
+    const horizPadding = 20;
+    const w = Math.floor((screenWidth - horizPadding * 2 - gap * (cols - 1)) / cols);
+    return { width: w, height: Math.round((w * 128) / 92) };
+  }, [screenWidth]);
 
   // ── Derived filter counts ─────────────────────────────────────────────────
   const allCromos = useMemo(
@@ -430,7 +499,6 @@ export default function AlbumScreen() {
         {totalVisible === 0 ? (
           <EmptyState />
         ) : isDefaultView ? (
-          /* Per-country sections with 4-col sm grid */
           filteredSections.map((section) =>
             section.cromos.length > 0 ? (
               <SectionGrid
@@ -438,13 +506,13 @@ export default function AlbumScreen() {
                 section={section}
                 onCardPress={handleCardPress}
                 compact={true}
+                cardWidth={cardSm.width}
+                cardHeight={cardSm.height}
               />
             ) : null
           )
         ) : (
-          /* Flat 3-col md grid for filtered views */
           <>
-            {/* Show section headers when country filtered */}
             {country !== null &&
               filteredSections.map((section) =>
                 section.cromos.length > 0 ? (
@@ -453,11 +521,19 @@ export default function AlbumScreen() {
                     section={section}
                     onCardPress={handleCardPress}
                     compact={false}
+                    cardWidth={cardMd.width}
+                    cardHeight={cardMd.height}
                   />
                 ) : null
               )}
-            {/* Flat grid when status-only filtered (all countries) */}
-            {country === null && <FlatGrid cromos={flatCromos} onCardPress={handleCardPress} />}
+            {country === null && (
+              <FlatGrid
+                cromos={flatCromos}
+                onCardPress={handleCardPress}
+                cardWidth={cardMd.width}
+                cardHeight={cardMd.height}
+              />
+            )}
           </>
         )}
       </ScrollView>

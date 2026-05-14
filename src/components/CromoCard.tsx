@@ -27,6 +27,10 @@ interface CromoCardProps {
   cromo: AlbumCromo;
   size?: CromoDimKey;
   onPress?: () => void;
+  /** Override the size preset's width — caller computed from screen width. */
+  width?: number;
+  /** Override the size preset's height — usually computed to keep aspect ratio. */
+  height?: number;
 }
 
 const statusLabel: Record<AlbumCromo['status'], string> = {
@@ -88,8 +92,14 @@ function buildDiagonalLines(
   return lines;
 }
 
-function CromoCardInner({ cromo, size = 'sm', onPress }: CromoCardProps) {
-  const dims = cromoDims[size];
+function CromoCardInner({ cromo, size = 'sm', onPress, width, height }: CromoCardProps) {
+  const preset = cromoDims[size];
+  // Use the override when provided, otherwise the size preset.
+  const dims = {
+    ...preset,
+    width: width ?? preset.width,
+    height: height ?? preset.height,
+  };
   const isLegendario = cromo.rarity_id === 'legendario';
   const isMissing = cromo.status === 'missing';
   const isRepeated = cromo.status === 'repeated';
@@ -142,15 +152,19 @@ function CromoCardInner({ cromo, size = 'sm', onPress }: CromoCardProps) {
           flexGrow: 0,
           backgroundColor: cardBg,
           borderRadius: radii.md,
-          overflow: 'hidden',
           position: 'relative',
+          // overflow:hidden ONLY when not missing — on Android dashed borders
+          // disappear when combined with overflow:hidden.
           ...(isMissing
             ? {
-                borderWidth: 1.5,
-                borderColor: C.faint,
+                borderWidth: 2,
+                borderColor: '#C9C3B3',
                 borderStyle: 'dashed',
+                alignItems: 'center',
+                justifyContent: 'center',
               }
             : {
+                overflow: 'hidden',
                 shadowColor: '#000',
                 shadowOffset: { width: 0, height: 1 },
                 shadowOpacity: 0.06,
@@ -165,11 +179,9 @@ function CromoCardInner({ cromo, size = 'sm', onPress }: CromoCardProps) {
     >
       {/* ─ MISSING state ──────────────────────────────────── */}
       {isMissing && (
-        <View style={styles.missingContent}>
-          <Text style={[styles.missingNumber, { fontSize: dims.num }]}>
-            {numStr}
-          </Text>
-        </View>
+        <Text style={[styles.missingNumber, { fontSize: Math.max(dims.num, 11) }]}>
+          {numStr}
+        </Text>
       )}
 
       {/* ─ HAVE / REPEATED state ─────────────────────────── */}
