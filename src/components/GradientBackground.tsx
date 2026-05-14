@@ -5,7 +5,7 @@ import { bgGradient } from '@/theme';
 
 /**
  * Radial gradient background using react-native-svg.
- * Gradient stops: #FCFAF4 → #F4EFE0 → #EAE4D2 (see `bgGradient` in theme/colors).
+ * Gradient stops: #FEFDF7 → #FAF6EA → #F2EDDB (see `bgGradient` in theme/colors).
  * Absolute fill — render behind content.
  */
 export default function GradientBackground() {

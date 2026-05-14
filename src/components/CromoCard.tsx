@@ -15,12 +15,13 @@
  *   - 'md' (3-col grid / hero): aspect 92/128
  *
  * States:
- *   - missing: transparent fill + 1.5px solid faint border + centered 3-digit
- *     number. The original design (components.jsx L47-48) uses a *dashed*
- *     border, but RN's `borderStyle: 'dashed'` is broken on Android when
- *     combined with `borderRadius` (issue #22033) — it renders nothing.
- *     Solid keeps the empty-slot feel and works cross-platform. If the
- *     dashed look is needed later, do it via SVG with non-scaling-stroke.
+ *   - missing: subtle solid fill (`MISSING_FILL`) + 1.5px solid faint border
+ *     + centered 3-digit number. The fill is critical for Android: a fully
+ *     transparent `View` with only a border can be collapsed by Android's
+ *     renderer and the border won't paint. A near-page-color fill gives the
+ *     View substance to draw around. Web renders the same code identically.
+ *     (The design's L47-48 dashed border is unreachable cross-platform —
+ *     RN issue #22033, dashed + borderRadius renders nothing on Android.)
  *   - have: top 2-color stripe, header (num+flag), portrait area with
  *     diagonal stripes + big jersey number, bottom name strip.
  *   - repeated: like have + dark ×N pill top-right.
@@ -39,6 +40,10 @@ const FONT_MONO = 'JetBrainsMono_400Regular';
 const LEGEND_BG = '#1F1B14';
 const LEGEND_TEXT = '#F2E8C9';
 const LEGEND_GOLD = '#FFD46B';
+// Missing-slot fill: between the lightest gradient stop (#FEFDF7) and the
+// middle (#FAF6EA). Slightly distinguishable from the page so the slot
+// reads as a card, but warm enough to feel like "empty paper."
+const MISSING_FILL = '#F6F2E2';
 
 type Size = 'sm' | 'md';
 
@@ -123,7 +128,7 @@ function CromoCardInner({ cromo, size = 'sm', onPress, width }: CromoCardProps) 
           styles.cardRoot,
           sizingStyle,
           {
-            backgroundColor: 'transparent',
+            backgroundColor: MISSING_FILL,
             borderWidth: 1.5,
             borderColor: C.faint,
             alignItems: 'center',

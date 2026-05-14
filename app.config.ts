@@ -12,7 +12,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   splash: {
     image: './assets/splash-icon.png',
     resizeMode: 'contain',
-    backgroundColor: '#FCFAF4',
+    backgroundColor: '#FEFDF7',
   },
   ios: {
     supportsTablet: false,
@@ -21,7 +21,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   android: {
     adaptiveIcon: {
       foregroundImage: './assets/adaptive-icon.png',
-      backgroundColor: '#FCFAF4',
+      backgroundColor: '#FEFDF7',
     },
     package: 'com.cromos.app',
   },

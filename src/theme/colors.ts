@@ -22,11 +22,11 @@ export const C = {
 export type CKey = keyof typeof C;
 
 /**
- * Background radial gradient stops: #FCFAF4 → #F4EFE0 → #EAE4D2
- * Lighter, whiter cream — still warm but with more daylight to let
- * card outlines (especially missing/empty slots) read clearly.
+ * Background radial gradient stops: #FEFDF7 → #FAF6EA → #F2EDDB
+ * Whiter cream — warm tint preserved but most of the page now reads as
+ * "off-white paper", giving missing-card outlines clear contrast.
  */
-export const bgGradient = ['#FCFAF4', '#F4EFE0', '#EAE4D2'] as const;
+export const bgGradient = ['#FEFDF7', '#FAF6EA', '#F2EDDB'] as const;
 
 /**
  * Rarity definitions — each with chip background, text color, and dot color.

@@ -2,6 +2,11 @@
 module.exports = {
   content: ['./src/**/*.{ts,tsx}'],
   presets: [require('nativewind/preset')],
+  // NativeWind v4 web warns "Cannot manually set color scheme, as dark
+  // mode is type 'media'" when this is unset. We don't implement dark
+  // mode in MVP, but `class` is the supported value that silences the
+  // warning without changing visual output.
+  darkMode: 'class',
   theme: {
     extend: {
       colors: {

@@ -169,7 +169,7 @@ The handoff bundle (`Cromos.html` and `app/*.jsx`, `tweaks-panel.jsx`) is the vi
   - `accent` `#1F5E3F` (pitch green), `accentSoft` `#E2EBE3`
   - `hot` `#C73E1D` (coral — perfect match / urgent), `hotSoft` `#F7E2DA`
   - `gold` `#B8862C`, `legend` `#1F1B14`
-  - Background: radial gradient `#FCFAF4 → #F4EFE0 → #EAE4D2` (whiter cream — original design specified `#F3F0E6 → #E8E3D5 → #DDD7C5`, lightened so empty-slot card outlines read clearly against the page)
+  - Background: radial gradient `#FEFDF7 → #FAF6EA → #F2EDDB` (whiter cream — original design specified `#F3F0E6 → #E8E3D5 → #DDD7C5`, lightened so empty-slot card outlines read clearly against the page)
   - Surface variants the prototype exposes: cream / paper / mist (keep as a theme option or pick cream as default).
 - **Rarities** (`RARITIES`): común / poco común / raro / muy raro / especial / legendario — each with chip bg, text, dot color. Legendario cromos render dark (`#1F1B14` bg, gold text).
 - **Cromo card** sizes: xs/sm/md/lg/xl (see `components.jsx` `dims`). Empty (missing) state = dashed faint border, transparent.
@@ -222,7 +222,7 @@ npx eas build --profile preview   # managed native build
 
 > **react-native-svg added:** `react-native-svg` is a direct dependency used by the
 > `GradientBackground` component to render the app's radial gradient background
-> (`#FCFAF4 → #F4EFE0 → #EAE4D2`). React Native has no native radial gradient primitive;
+> (`#FEFDF7 → #FAF6EA → #F2EDDB`). React Native has no native radial gradient primitive;
 > SVG is the correct solution. Do not remove it.
 
 Supabase: schema changes go through migrations (Supabase MCP / `supabase` CLI); use `list_tables`, `get_advisors`, `get_logs` before/after changes.
