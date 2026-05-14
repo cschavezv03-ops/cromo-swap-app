@@ -70,6 +70,7 @@ interface FilterPillProps {
 }
 
 function FilterPill({ label, count, selected, onPress }: FilterPillProps) {
+  // Rock-solid inline styles — no callbacks, no StyleSheet, no theme indirection.
   return (
     <Pressable
       onPress={onPress}
@@ -77,16 +78,43 @@ function FilterPill({ label, count, selected, onPress }: FilterPillProps) {
       accessibilityLabel={label}
       accessibilityState={{ selected }}
       hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}
-      style={({ pressed }) => [
-        styles.pill,
-        selected ? styles.pillSelected : styles.pillIdle,
-        pressed && styles.pillPressed,
-      ]}
+      style={{
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: selected ? '#15140F' : '#FFFFFF',
+        borderWidth: 1,
+        borderColor: selected ? '#15140F' : '#E5E0D2',
+        borderRadius: 999,
+        paddingHorizontal: 16,
+        paddingVertical: 10,
+        minHeight: 40,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.06,
+        shadowRadius: 3,
+        elevation: 2,
+      }}
     >
-      <Text style={[styles.pillLabel, selected && styles.pillLabelSelected]}>
+      <Text
+        style={{
+          fontFamily: 'Manrope_700Bold',
+          fontSize: 13,
+          fontWeight: '700',
+          color: selected ? '#FFFFFF' : '#15140F',
+          letterSpacing: -0.1,
+        }}
+      >
         {label}
       </Text>
-      <Text style={[styles.pillCount, selected && styles.pillCountSelected]}>
+      <Text
+        style={{
+          marginLeft: 7,
+          fontFamily: 'JetBrainsMono_400Regular',
+          fontSize: 11,
+          fontWeight: '700',
+          color: selected ? 'rgba(255,255,255,0.65)' : '#7A766B',
+        }}
+      >
         {count}
       </Text>
     </Pressable>
@@ -110,18 +138,33 @@ function CountryChip({ flag, code, selected, onPress }: CountryChipProps) {
       accessibilityLabel={code}
       accessibilityState={{ selected }}
       hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}
-      style={({ pressed }) => [
-        styles.countryChip,
-        selected ? styles.countryChipSelected : styles.countryChipIdle,
-        pressed && styles.pillPressed,
-      ]}
+      style={{
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: selected ? '#15140F' : '#FFFFFF',
+        borderWidth: 1,
+        borderColor: selected ? '#15140F' : '#E5E0D2',
+        borderRadius: 999,
+        paddingHorizontal: 12,
+        paddingVertical: 8,
+        minHeight: 36,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.06,
+        shadowRadius: 3,
+        elevation: 2,
+      }}
     >
-      <Text style={styles.countryChipFlag}>{flag}</Text>
+      <Text style={{ fontSize: 16, marginRight: 7 }}>{flag}</Text>
       <Text
-        style={[
-          styles.countryChipCode,
-          selected && styles.countryChipCodeSelected,
-        ]}
+        style={{
+          fontFamily: 'JetBrainsMono_400Regular',
+          fontSize: 11,
+          fontWeight: '700',
+          color: selected ? '#FFFFFF' : '#15140F',
+          letterSpacing: 0.6,
+          textTransform: 'uppercase',
+        }}
       >
         {code}
       </Text>
