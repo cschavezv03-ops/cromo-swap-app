@@ -1,25 +1,33 @@
 /**
  * CromoCard — sticker card, faithful to Claude Design v3 (components.jsx).
  *
- * The card is FLEX-SIZED: it fills 100% width of its parent column and uses
- * `aspectRatio` for height. The parent is responsible for the column layout
- * (`<View style={{flex:1}}>` inside a row of N items = N equal columns).
- * That way the card scales correctly on any screen width.
+ * Sizing model:
+ *   - Default (no `width` prop): the card fills 100% of its parent column
+ *     and uses `aspectRatio` for height. Wrap each card in a
+ *     `<View style={{ flex: 1 }}>` row cell to get a perfect N-column grid.
+ *     This is the React Native equivalent of `grid-template-columns: repeat(N, 1fr)`
+ *     — Yoga calculates the exact pixel width gap-aware and sub-pixel-safe.
+ *   - With explicit `width` prop: renders at that fixed pixel width and a
+ *     proportional height. Used for hero/detail-sheet placement (e.g. 140pt).
  *
  * Two sizes:
- *   - 'sm' (4-col grid): 72×100 aspect = 0.72
- *   - 'md' (3-col grid): 92×128 aspect = 0.71875 (call it 92/128)
+ *   - 'sm' (4-col grid): aspect 72/100
+ *   - 'md' (3-col grid / hero): aspect 92/128
  *
  * States:
- *   - missing: dashed border (drawn via SVG — RN's borderStyle:dashed is
- *     broken on Android), centered 3-digit padded number, transparent bg.
+ *   - missing: transparent fill + 1.5px solid faint border + centered 3-digit
+ *     number. The original design (components.jsx L47-48) uses a *dashed*
+ *     border, but RN's `borderStyle: 'dashed'` is broken on Android when
+ *     combined with `borderRadius` (issue #22033) — it renders nothing.
+ *     Solid keeps the empty-slot feel and works cross-platform. If the
+ *     dashed look is needed later, do it via SVG with non-scaling-stroke.
  *   - have: top 2-color stripe, header (num+flag), portrait area with
  *     diagonal stripes + big jersey number, bottom name strip.
  *   - repeated: like have + dark ×N pill top-right.
  *   - legendario: dark bg + gold accents + gold corner dot.
  */
 import React, { memo } from 'react';
-import { Pressable, View, Text, StyleSheet } from 'react-native';
+import { Pressable, View, Text, StyleSheet, type ViewStyle } from 'react-native';
 import Svg, { Line } from 'react-native-svg';
 import { C } from '@/theme';
 import type { AlbumCromo } from '@/lib/album-types';
@@ -37,9 +45,20 @@ type Size = 'sm' | 'md';
 interface CromoCardProps {
   cromo: AlbumCromo;
   size?: Size;
-  onPress?: () => void;
-  /** Explicit width passed from the parent grid (computed from screen width). */
-  width: number;
+  /**
+   * Receives the card's own cromo so the parent can pass a STABLE function
+   * reference (e.g. `onPress={handleCardPress}`) without per-card closures.
+   * Per-card closures break `memo` — every parent render recreates the
+   * `onPress` prop, forcing every CromoCard to re-render even though its
+   * data didn't change.
+   */
+  onPress?: (cromo: AlbumCromo) => void;
+  /**
+   * Optional fixed pixel width. If omitted, the card fills 100% of its parent
+   * column and derives height via aspectRatio — wrap it in a `flex:1` cell to
+   * build a symmetric grid. Pass an explicit width only for hero/detail use.
+   */
+  width?: number;
 }
 
 /**
@@ -64,7 +83,21 @@ const TYPO: Record<
 
 function CromoCardInner({ cromo, size = 'sm', onPress, width }: CromoCardProps) {
   const t = TYPO[size];
-  const height = Math.round(width / t.aspect);
+  // Wrap `onPress(cromo)` ONCE per card lifetime via the cromo reference.
+  // The cromo prop is stable per row item, so the handler stays stable too.
+  const handlePress = React.useMemo(
+    () => (onPress ? () => onPress(cromo) : undefined),
+    [onPress, cromo],
+  );
+  // Sizing strategy:
+  //   - Explicit width → fixed pixel size + computed height (hero use).
+  //   - No width → fill the parent flex cell + aspectRatio for height (grid).
+  // Yoga handles sub-pixel math when we let it: 4 × `flex:1` cells inside a
+  // row with `gap` ALWAYS sum to exactly the available width.
+  const sizingStyle: ViewStyle =
+    width != null
+      ? { width, height: Math.round(width / t.aspect) }
+      : { width: '100%', aspectRatio: t.aspect };
   const isLegend = cromo.rarity_id === 'legendario';
   const isMissing = cromo.status === 'missing';
   const isRepeated = cromo.status === 'repeated';
@@ -77,31 +110,29 @@ function CromoCardInner({ cromo, size = 'sm', onPress, width }: CromoCardProps) 
   }`;
 
   // ────── MISSING ──────
-  // Solid 1.5px border in #B8B3A6 (C.faint) with a faint warm fill —
-  // visually reads as a physical empty album slot, exactly the same size
-  // as a HAVE card.
+  // Empty album slot: transparent fill + solid faint outline + centered
+  // 3-digit number. Same outer dimensions as a HAVE card so the grid stays
+  // perfectly symmetric whether the user has 0 cromos or 240.
   if (isMissing) {
     return (
       <Pressable
-        onPress={onPress}
+        onPress={handlePress}
         accessibilityRole="button"
         accessibilityLabel={a11yLabel}
         style={({ pressed }) => [
           styles.cardRoot,
+          sizingStyle,
           {
-            width,
-            height,
-            backgroundColor: '#F0EBDC',
+            backgroundColor: 'transparent',
             borderWidth: 1.5,
-            borderColor: '#B8B3A6',
-            overflow: 'hidden',
+            borderColor: C.faint,
             alignItems: 'center',
             justifyContent: 'center',
           },
-          pressed && { opacity: 0.6, transform: [{ scale: 0.97 }] },
+          pressed && { opacity: 0.55, transform: [{ scale: 0.97 }] },
         ]}
       >
-        <Text style={[styles.missingNum, { fontSize: t.numFont + 1 }]}>{numStr}</Text>
+        <Text style={[styles.missingNum, { fontSize: t.numFont + 2 }]}>{numStr}</Text>
       </Pressable>
     );
   }
@@ -115,14 +146,13 @@ function CromoCardInner({ cromo, size = 'sm', onPress, width }: CromoCardProps) 
 
   return (
     <Pressable
-      onPress={onPress}
+      onPress={handlePress}
       accessibilityRole="button"
       accessibilityLabel={a11yLabel}
       style={({ pressed }) => [
         styles.cardRoot,
+        sizingStyle,
         {
-          width,
-          height,
           backgroundColor: cardBg,
           borderWidth: 0.5,
           borderColor: isLegend ? 'rgba(242,232,201,0.2)' : C.hairline,
@@ -160,9 +190,10 @@ function CromoCardInner({ cromo, size = 'sm', onPress, width }: CromoCardProps) 
         ]}
       >
         <Svg width="100%" height="100%" style={StyleSheet.absoluteFill}>
-          {/* Diagonal stripe pattern: ~25 lines at 45° */}
-          {Array.from({ length: 26 }).map((_, i) => {
-            const offset = i * 7 - 60;
+          {/* Diagonal stripe pattern: 13 lines at 45° (halved from 26 for
+              scroll perf — the pattern reads the same at typical card sizes). */}
+          {Array.from({ length: 13 }).map((_, i) => {
+            const offset = i * 14 - 60;
             return (
               <Line
                 key={i}
@@ -238,11 +269,6 @@ const styles = StyleSheet.create({
   cardRoot: {
     borderRadius: 8,
     position: 'relative',
-    // Critical: without flexShrink:0, Yoga shrinks the card to fit when
-    // the row's total width (4 × cardWidth + 3 × gap) lands above the
-    // available space by even 1 px, collapsing all cards proportionally.
-    flexShrink: 0,
-    flexGrow: 0,
   },
   center: {
     flex: 1,

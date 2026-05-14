@@ -1,22 +1,29 @@
 /**
- * AlbumScreen — full rebuild, faithful to Claude Design v3 (screens-main.jsx).
+ * AlbumScreen — virtualized rebuild, faithful to Claude Design v3 (screens-main.jsx).
  *
  * Architecture:
  *   <Screen>
- *     <ScrollView>
- *       <TopBar>            MUNDIAL 2026 / El álbum + search icon
- *       <PillRow>           Todos N / Faltan N / Repetidos N / Tengo N
- *       <CountryRow>        🌍 ALL · ARG · BRA · ... (horizontal scroll)
- *       <PerCountrySection> SectionHeader + 4-col grid (flex:1 per column)
- *     </ScrollView>
- *     <BottomSheet>         on cromo tap → CromoDetailSheet with +/-
+ *     <SectionList>
+ *       ListHeader = TopBar + GuestBanner + Filter pills + Country chips
+ *       Section    = one country (header = SectionHeader)
+ *       Item       = one ROW of N cards (each card wrapped in flex:1 cell)
+ *     </SectionList>
+ *     <BottomSheet> on cromo tap → CromoDetailSheet with +/-
  *
- * Grid implementation: explicit row chunking with `flex: 1` per cell — this is
- * the React Native equivalent of CSS `grid-template-columns: repeat(4, 1fr)`.
- * Cards inside use `width: 100% + aspectRatio` so they scale exactly to
- * 1/N of the available row width on ANY screen.
+ * Why SectionList instead of ScrollView+Grid:
+ *   - 240 cromos × Pressable + SVG = hundreds of native views.
+ *     ScrollView renders them ALL upfront, locking up the main thread on
+ *     scroll. SectionList virtualizes by ROW — only ~10 rows live in the
+ *     viewport at any time, the rest are unmounted/clipped.
+ *   - Row is `memo`'d on its inputs (row data, cols, size). Filters that
+ *     don't change the row don't re-render it.
+ *
+ * Grid model (unchanged): row = `flexDirection:row` + `gap`, each cell is
+ *   `<View flex:1>` wrapping a `<CromoCard />` (width:100% + aspectRatio).
+ *   Yoga handles sub-pixel math so the last card lands flush with the right
+ *   padding — no dead space, perfectly symmetric on any device.
  */
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { memo, useCallback, useMemo, useState } from 'react';
 import {
   View,
   Text,
@@ -24,7 +31,8 @@ import {
   Pressable,
   ActivityIndicator,
   RefreshControl,
-  useWindowDimensions,
+  SectionList,
+  type SectionListRenderItemInfo,
 } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 import { Screen, RegisterPrompt } from '@/components';
@@ -53,7 +61,7 @@ const STATUS_FILTERS: { value: StatusFilter; label: string }[] = [
 ];
 
 // ─── Filter pill ─────────────────────────────────────────────────────────────
-function FilterPill({
+const FilterPill = memo(function FilterPill({
   label,
   count,
   selected,
@@ -111,10 +119,10 @@ function FilterPill({
       </Text>
     </Pressable>
   );
-}
+});
 
 // ─── Country chip ────────────────────────────────────────────────────────────
-function CountryChip({
+const CountryChip = memo(function CountryChip({
   flag,
   code,
   selected,
@@ -163,118 +171,86 @@ function CountryChip({
       </Text>
     </Pressable>
   );
-}
+});
 
-// ─── Grid: explicit row chunking with flex:1 per cell ────────────────────────
+// ─── Row helpers ─────────────────────────────────────────────────────────────
 function chunk<T>(arr: T[], n: number): T[][] {
   const out: T[][] = [];
   for (let i = 0; i < arr.length; i += n) out.push(arr.slice(i, i + n));
   return out;
 }
 
-function Grid({
-  cromos,
+type CromoRow = { id: string; cromos: AlbumCromo[] };
+
+type AlbumSectionData = {
+  key: string;
+  country: AlbumSection['country'] | null; // null = flat view, no header
+  ownedCount: number;
+  total: number;
+  data: CromoRow[];
+};
+
+// ─── Row: one row of N cards (memoized — SectionList virtualizes per row) ──
+const Row = memo(function Row({
+  row,
   cols,
   size,
-  cardWidth,
+  gap,
+  rowGap,
+  isLastRow,
   onCardPress,
 }: {
-  cromos: AlbumCromo[];
+  row: CromoRow;
   cols: number;
   size: 'sm' | 'md';
-  cardWidth: number;
+  gap: number;
+  rowGap: number;
+  isLastRow: boolean;
   onCardPress: (c: AlbumCromo) => void;
 }) {
-  const rows = chunk(cromos, cols);
-  const gap = size === 'sm' ? 10 : 12;
-  const rowGap = size === 'sm' ? 12 : 14;
-
   return (
-    <View style={{ paddingHorizontal: 20, paddingTop: 4 }}>
-      {rows.map((row, i) => (
-        <View
-          key={i}
-          style={{
-            flexDirection: 'row',
-            gap,
-            marginBottom: i < rows.length - 1 ? rowGap : 6,
-          }}
-        >
-          {row.map((cromo) => (
-            <CromoCard
-              key={cromo.id}
-              cromo={cromo}
-              size={size}
-              width={cardWidth}
-              onPress={() => onCardPress(cromo)}
-            />
-          ))}
-          {row.length < cols &&
-            Array.from({ length: cols - row.length }).map((_, j) => (
-              <View key={`sp-${j}`} style={{ width: cardWidth }} />
-            ))}
+    <View
+      style={{
+        flexDirection: 'row',
+        gap,
+        paddingHorizontal: 20,
+        marginBottom: isLastRow ? 6 : rowGap,
+      }}
+    >
+      {row.cromos.map((cromo) => (
+        <View key={cromo.id} style={{ flex: 1 }}>
+          {/* onPress receives the cromo from CromoCard itself — passing a
+              stable function reference keeps memo() effective. */}
+          <CromoCard cromo={cromo} size={size} onPress={onCardPress} />
         </View>
       ))}
+      {row.cromos.length < cols &&
+        Array.from({ length: cols - row.cromos.length }).map((_, j) => (
+          <View key={`sp-${j}`} style={{ flex: 1 }} />
+        ))}
     </View>
   );
-}
-
-// ─── Per-country section ─────────────────────────────────────────────────────
-function PerCountrySection({
-  section,
-  cols,
-  size,
-  cardWidth,
-  onCardPress,
-}: {
-  section: AlbumSection;
-  cols: number;
-  size: 'sm' | 'md';
-  cardWidth: number;
-  onCardPress: (c: AlbumCromo) => void;
-}) {
-  if (section.cromos.length === 0) return null;
-  return (
-    <View style={{ marginBottom: 18 }}>
-      <SectionHeader
-        flagEmoji={section.country.flag_emoji}
-        countryCode={section.country.code}
-        countryName={section.country.name}
-        ownedCount={section.ownedCount}
-        total={section.total}
-        accent={section.country.accent}
-      />
-      <Grid
-        cromos={section.cromos}
-        cols={cols}
-        size={size}
-        cardWidth={cardWidth}
-        onCardPress={onCardPress}
-      />
-    </View>
-  );
-}
+});
 
 // ─── AlbumScreen ─────────────────────────────────────────────────────────────
 export default function AlbumScreen() {
   const { isGuest } = useSession();
-  const { sections, stats, isLoading, isRefetching, refetch } = useAlbum();
+  const { sections, isLoading, isRefetching, refetch } = useAlbum();
   const { status, country, setStatus, setCountry } = useAlbumFilters();
   const [selected, setSelected] = useState<AlbumCromo | null>(null);
 
-  // All cromos flat (for counts and filtered flat view)
   const allCromos = useMemo(() => sections.flatMap((s) => s.cromos), [sections]);
 
-  const filterCounts = useMemo(() => {
-    return {
+  const filterCounts = useMemo(
+    () => ({
       all: allCromos.length,
       missing: allCromos.filter((c) => c.status === 'missing').length,
       repeated: allCromos.filter((c) => c.status === 'repeated').length,
       have: allCromos.filter((c) => c.status === 'have' || c.status === 'repeated').length,
-    };
-  }, [allCromos]);
+    }),
+    [allCromos],
+  );
 
-  // Filter the sections
   const filteredSections = useMemo(() => {
     return sections
       .map((s) => {
@@ -285,26 +261,52 @@ export default function AlbumScreen() {
           ownedCount: filtered.filter((c) => c.status !== 'missing').length,
         };
       })
-      .filter((s) => (country === null ? true : s.country.code === country));
+      .filter((s) => (country === null ? true : s.country.code === country))
+      .filter((s) => s.cromos.length > 0);
   }, [sections, status, country]);
 
-  const flatCromos = useMemo(() => filteredSections.flatMap((s) => s.cromos), [filteredSections]);
+  const flatCromos = useMemo(
+    () => filteredSections.flatMap((s) => s.cromos),
+    [filteredSections],
+  );
   const totalVisible = flatCromos.length;
 
   const isDefaultView = status === 'all' && country === null;
   const cols = isDefaultView ? 4 : 3;
   const size: 'sm' | 'md' = isDefaultView ? 'sm' : 'md';
+  const gap = size === 'sm' ? 10 : 12;
+  const rowGap = size === 'sm' ? 12 : 14;
 
-  // ── Compute card width from screen so all 4 (or 3) cards fit exactly ─
-  // Subtract 1 from the per-card floor for safety: when flexShrink:0 is in
-  // play, a sub-pixel overflow would push the last card out of the row.
-  const { width: screenWidth } = useWindowDimensions();
-  const cardWidth = useMemo(() => {
-    const horizPad = 20;
-    const gap = size === 'sm' ? 10 : 12;
-    const raw = (screenWidth - horizPad * 2 - gap * (cols - 1)) / cols;
-    return Math.floor(raw) - 1;
-  }, [screenWidth, cols, size]);
+  // Build SectionList sections (rows chunked per N cols)
+  const listSections = useMemo<AlbumSectionData[]>(() => {
+    // Flat view: status filter active + country=null (NOT default).
+    // Single pseudo-section with no header — all matched cromos in one grid.
+    if (!isDefaultView && country === null) {
+      return [
+        {
+          key: 'flat',
+          country: null,
+          ownedCount: 0,
+          total: 0,
+          data: chunk(flatCromos, cols).map((cromos, i) => ({
+            id: `flat-${i}`,
+            cromos,
+          })),
+        },
+      ];
+    }
+    // Per-country sections (default view OR single country)
+    return filteredSections.map((s) => ({
+      key: s.country.code,
+      country: s.country,
+      ownedCount: s.ownedCount,
+      total: s.total,
+      data: chunk(s.cromos, cols).map((cromos, i) => ({
+        id: `${s.country.code}-${i}`,
+        cromos,
+      })),
+    }));
+  }, [isDefaultView, country, filteredSections, flatCromos, cols]);
 
   const countryRow = useMemo(
     () => sections.map((s) => ({ code: s.country.code, flag: s.country.flag_emoji })),
@@ -314,31 +316,51 @@ export default function AlbumScreen() {
   const handlePress = useCallback((c: AlbumCromo) => setSelected(c), []);
   const handleClose = useCallback(() => setSelected(null), []);
 
-  if (isLoading) {
-    return (
-      <Screen>
-        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
-          <ActivityIndicator size="large" color={C.accent} />
-        </View>
-      </Screen>
-    );
-  }
+  // ── SectionList callbacks (stable refs avoid full re-renders) ──
+  const renderRow = useCallback(
+    ({ item, index, section }: SectionListRenderItemInfo<CromoRow, AlbumSectionData>) => {
+      const isLastRow = index === section.data.length - 1;
+      return (
+        <Row
+          row={item}
+          cols={cols}
+          size={size}
+          gap={gap}
+          rowGap={rowGap}
+          isLastRow={isLastRow}
+          onCardPress={handlePress}
+        />
+      );
+    },
+    [cols, size, gap, rowGap, handlePress],
+  );
 
-  return (
-    <Screen>
-      <ScrollView
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ paddingBottom: 90 }}
-        refreshControl={
-          <RefreshControl
-            refreshing={isRefetching}
-            onRefresh={refetch}
-            tintColor={C.accent}
-            colors={[C.accent]}
-          />
-        }
-      >
-        {/* ── Top bar: title + search icon ───────────────────── */}
+  const renderHeader = useCallback(
+    ({ section }: { section: AlbumSectionData }) => {
+      if (!section.country) return null; // flat view: no header
+      return (
+        <SectionHeader
+          flagEmoji={section.country.flag_emoji}
+          countryCode={section.country.code}
+          countryName={section.country.name}
+          ownedCount={section.ownedCount}
+          total={section.total}
+          accent={section.country.accent}
+        />
+      );
+    },
+    [],
+  );
+
+  const renderSectionFooter = useCallback(() => <View style={{ height: 14 }} />, []);
+
+  const keyExtractor = useCallback((item: CromoRow) => item.id, []);
+
+  // ── ListHeader: title + guest banner + pills + chips ──
+  const ListHeader = useCallback(
+    () => (
+      <View>
+        {/* Top bar */}
         <View
           style={{
             flexDirection: 'row',
@@ -399,14 +421,14 @@ export default function AlbumScreen() {
           </Pressable>
         </View>
 
-        {/* ── Guest banner (only for anon users) ───────────── */}
+        {/* Guest banner */}
         {isGuest && (
           <View style={{ marginHorizontal: 20, marginBottom: 12 }}>
             <RegisterPrompt feature="intercambios" />
           </View>
         )}
 
-        {/* ── Status filter pills ──────────────────────────── */}
+        {/* Status filter pills */}
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
@@ -423,7 +445,7 @@ export default function AlbumScreen() {
           ))}
         </ScrollView>
 
-        {/* ── Country chips ────────────────────────────────── */}
+        {/* Country chips */}
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
@@ -445,55 +467,71 @@ export default function AlbumScreen() {
             />
           ))}
         </ScrollView>
+      </View>
+    ),
+    [isGuest, status, country, filterCounts, countryRow, setStatus, setCountry],
+  );
 
-        {/* ── Grid area ────────────────────────────────────── */}
-        {totalVisible === 0 ? (
-          <View style={{ paddingVertical: 48, alignItems: 'center', paddingHorizontal: 32 }}>
-            <Text
-              style={{
-                fontFamily: FONT_MANROPE,
-                fontSize: 14,
-                color: C.muted,
-                textAlign: 'center',
-              }}
-            >
-              No hay cromos con ese filtro.
-            </Text>
-          </View>
-        ) : isDefaultView ? (
-          filteredSections.map((s) => (
-            <PerCountrySection
-              key={s.country.code}
-              section={s}
-              cols={cols}
-              size={size}
-              cardWidth={cardWidth}
-              onCardPress={handlePress}
-            />
-          ))
-        ) : country !== null ? (
-          filteredSections.map((s) => (
-            <PerCountrySection
-              key={s.country.code}
-              section={s}
-              cols={cols}
-              size={size}
-              cardWidth={cardWidth}
-              onCardPress={handlePress}
-            />
-          ))
-        ) : (
-          <Grid
-            cromos={flatCromos}
-            cols={cols}
-            size={size}
-            cardWidth={cardWidth}
-            onCardPress={handlePress}
+  // ── ListEmpty: no cromos match current filter ──
+  const ListEmpty = useCallback(
+    () => (
+      <View style={{ paddingVertical: 48, alignItems: 'center', paddingHorizontal: 32 }}>
+        <Text
+          style={{
+            fontFamily: FONT_MANROPE,
+            fontSize: 14,
+            color: C.muted,
+            textAlign: 'center',
+          }}
+        >
+          No hay cromos con ese filtro.
+        </Text>
+      </View>
+    ),
+    [],
+  );
+
+  if (isLoading) {
+    return (
+      <Screen>
+        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+          <ActivityIndicator size="large" color={C.accent} />
+        </View>
+      </Screen>
+    );
+  }
+
+  return (
+    <Screen>
+      <SectionList
+        sections={totalVisible === 0 ? [] : listSections}
+        keyExtractor={keyExtractor}
+        renderItem={renderRow}
+        renderSectionHeader={renderHeader}
+        renderSectionFooter={renderSectionFooter}
+        ListHeaderComponent={ListHeader}
+        ListEmptyComponent={ListEmpty}
+        stickySectionHeadersEnabled={false}
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={{ paddingBottom: 90 }}
+        refreshControl={
+          <RefreshControl
+            refreshing={isRefetching}
+            onRefresh={refetch}
+            tintColor={C.accent}
+            colors={[C.accent]}
           />
-        )}
-      </ScrollView>
+        }
+        // ── Virtualization tuning ──
+        // Aggressive defaults — render less upfront, less in window, no
+        // clipped subviews (Android RN layout bug at high item counts).
+        initialNumToRender={6}
+        maxToRenderPerBatch={4}
+        updateCellsBatchingPeriod={50}
+        windowSize={3}
+      />
 
-      {/* ── Detail sheet on tap ─────────────────────────────── */}
+      {/* Detail sheet on tap */}
       <BottomSheet visible={selected !== null} onClose={handleClose}>
         {selected && <CromoDetailSheet cromo={selected} onClose={handleClose} />}
       </BottomSheet>

@@ -22,9 +22,11 @@ export const C = {
 export type CKey = keyof typeof C;
 
 /**
- * Background radial gradient stops: #F3F0E6 → #E8E3D5 → #DDD7C5
+ * Background radial gradient stops: #FCFAF4 → #F4EFE0 → #EAE4D2
+ * Lighter, whiter cream — still warm but with more daylight to let
+ * card outlines (especially missing/empty slots) read clearly.
  */
-export const bgGradient = ['#F3F0E6', '#E8E3D5', '#DDD7C5'] as const;
+export const bgGradient = ['#FCFAF4', '#F4EFE0', '#EAE4D2'] as const;
 
 /**
  * Rarity definitions — each with chip background, text color, and dot color.
