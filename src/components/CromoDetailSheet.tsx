@@ -93,7 +93,7 @@ export default function CromoDetailSheet({ cromo }: CromoDetailSheetProps) {
     >
       {/* Hero cromo card */}
       <View style={styles.cardWrapper}>
-        <CromoCard cromo={cromo} size="lg" />
+        <CromoCard cromo={cromo} size="md" />
       </View>
 
       {/* Rarity chip */}

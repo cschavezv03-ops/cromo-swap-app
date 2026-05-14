@@ -1,32 +1,22 @@
 /**
- * AlbumScreen — the main album view.
- * Faithfully recreates the Claude Design v2 reference (screens-main.jsx).
+ * AlbumScreen — full rebuild, faithful to Claude Design v3 (screens-main.jsx).
  *
- * Key architectural decision: SectionList → ScrollView
- * SectionList with flexWrap="wrap" inside renderItem causes layout collapse:
- * the list engine measures the item once and can't handle a multi-row flex-wrap
- * grid. For 240 cromos across 16 countries the ScrollView is perfectly fine;
- * virtualization can be added in Phase 10 if benchmarks demand it.
+ * Architecture:
+ *   <Screen>
+ *     <ScrollView>
+ *       <TopBar>            MUNDIAL 2026 / El álbum + search icon
+ *       <PillRow>           Todos N / Faltan N / Repetidos N / Tengo N
+ *       <CountryRow>        🌍 ALL · ARG · BRA · ... (horizontal scroll)
+ *       <PerCountrySection> SectionHeader + 4-col grid (flex:1 per column)
+ *     </ScrollView>
+ *     <BottomSheet>         on cromo tap → CromoDetailSheet with +/-
  *
- * Grid math:
- *   sm cards (72px) × 4 cols + gap (10px) × 3 = 318px → fits 360px+ with 20px
- *   horizontal padding each side (40px total → 318px < 320px ✓).
- *   md cards (92px) × 3 cols + gap (12px) × 2 = 300px → fits with same padding ✓.
- *
- * ui-ux-pro-max guidance applied:
- * - bottom-nav-limit: 5 tabs ✓
- * - virtualize-lists: skipped for 240 items per Phase 10 decision; noted
- * - progressive-loading: ActivityIndicator on initial load only
- * - empty-states: helpful text when filters return 0 results
- * - number-tabular: JetBrains Mono for all numeric stats
- * - touch-target-size: filter/country chips ≥36px height (pill height) ✓
- * - scroll-behavior: single root ScrollView, no nested scrolls for grids
- * - horizontal ScrollViews only for chip rows (one axis each)
- * - state-preservation: filter state kept in component via useAlbumFilters hook
- *
- * Spec: R4-1-1..R4-1-8, R4-NFR-3, R4-NFR-11
+ * Grid implementation: explicit row chunking with `flex: 1` per cell — this is
+ * the React Native equivalent of CSS `grid-template-columns: repeat(4, 1fr)`.
+ * Cards inside use `width: 100% + aspectRatio` so they scale exactly to
+ * 1/N of the available row width on ANY screen.
  */
-import React, { useState, useCallback, useMemo } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import {
   View,
   Text,
@@ -34,26 +24,26 @@ import {
   Pressable,
   ActivityIndicator,
   RefreshControl,
-  StyleSheet,
-  useWindowDimensions,
 } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 import { Screen, RegisterPrompt } from '@/components';
-import SectionHeader from '@/components/SectionHeader';
 import CromoCard from '@/components/CromoCard';
+import SectionHeader from '@/components/SectionHeader';
 import BottomSheet from '@/components/BottomSheet';
 import CromoDetailSheet from '@/components/CromoDetailSheet';
-import { C, spacing, radii, FONTS } from '@/theme';
+import { C } from '@/theme';
 import { useAlbum } from '@/lib/album-queries';
 import { useAlbumFilters, applyFilters } from '@/lib/album-filters';
 import { useSession } from '@/lib/session-context';
 import type { AlbumCromo, AlbumSection } from '@/lib/album-types';
 import type { FilterState } from '@/lib/album-filters';
 
-// ── Types ─────────────────────────────────────────────────────────────────────
+const FONT_MANROPE_X = 'Manrope_800ExtraBold';
+const FONT_MANROPE = 'Manrope_700Bold';
+const FONT_MONO = 'JetBrainsMono_400Regular';
+
 type StatusFilter = FilterState['status'];
 
-// ── Status filter config ──────────────────────────────────────────────────────
 const STATUS_FILTERS: { value: StatusFilter; label: string }[] = [
   { value: 'all', label: 'Todos' },
   { value: 'missing', label: 'Faltan' },
@@ -61,24 +51,24 @@ const STATUS_FILTERS: { value: StatusFilter; label: string }[] = [
   { value: 'have', label: 'Tengo' },
 ];
 
-// ── Status filter pill ────────────────────────────────────────────────────────
-
-interface FilterPillProps {
+// ─── Filter pill ─────────────────────────────────────────────────────────────
+function FilterPill({
+  label,
+  count,
+  selected,
+  onPress,
+}: {
   label: string;
   count: number;
   selected: boolean;
   onPress: () => void;
-}
-
-function FilterPill({ label, count, selected, onPress }: FilterPillProps) {
-  // Rock-solid inline styles — no callbacks, no StyleSheet, no theme indirection.
+}) {
   return (
     <Pressable
       onPress={onPress}
       accessibilityRole="button"
-      accessibilityLabel={label}
+      accessibilityLabel={`${label} ${count}`}
       accessibilityState={{ selected }}
-      hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}
       style={{
         flexDirection: 'row',
         alignItems: 'center',
@@ -91,14 +81,14 @@ function FilterPill({ label, count, selected, onPress }: FilterPillProps) {
         minHeight: 40,
         shadowColor: '#000',
         shadowOffset: { width: 0, height: 1 },
-        shadowOpacity: 0.06,
-        shadowRadius: 3,
-        elevation: 2,
+        shadowOpacity: 0.05,
+        shadowRadius: 2,
+        elevation: 1,
       }}
     >
       <Text
         style={{
-          fontFamily: 'Manrope_700Bold',
+          fontFamily: FONT_MANROPE,
           fontSize: 13,
           fontWeight: '700',
           color: selected ? '#FFFFFF' : '#15140F',
@@ -110,10 +100,10 @@ function FilterPill({ label, count, selected, onPress }: FilterPillProps) {
       <Text
         style={{
           marginLeft: 7,
-          fontFamily: 'JetBrainsMono_400Regular',
+          fontFamily: FONT_MONO,
           fontSize: 11,
           fontWeight: '700',
-          color: selected ? 'rgba(255,255,255,0.65)' : '#7A766B',
+          color: selected ? 'rgba(255,255,255,0.7)' : '#7A766B',
         }}
       >
         {count}
@@ -122,23 +112,24 @@ function FilterPill({ label, count, selected, onPress }: FilterPillProps) {
   );
 }
 
-// ── Country chip ──────────────────────────────────────────────────────────────
-
-interface CountryChipProps {
+// ─── Country chip ────────────────────────────────────────────────────────────
+function CountryChip({
+  flag,
+  code,
+  selected,
+  onPress,
+}: {
   flag: string;
   code: string;
   selected: boolean;
   onPress: () => void;
-}
-
-function CountryChip({ flag, code, selected, onPress }: CountryChipProps) {
+}) {
   return (
     <Pressable
       onPress={onPress}
       accessibilityRole="button"
       accessibilityLabel={code}
       accessibilityState={{ selected }}
-      hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}
       style={{
         flexDirection: 'row',
         alignItems: 'center',
@@ -151,19 +142,19 @@ function CountryChip({ flag, code, selected, onPress }: CountryChipProps) {
         minHeight: 36,
         shadowColor: '#000',
         shadowOffset: { width: 0, height: 1 },
-        shadowOpacity: 0.06,
-        shadowRadius: 3,
-        elevation: 2,
+        shadowOpacity: 0.05,
+        shadowRadius: 2,
+        elevation: 1,
       }}
     >
-      <Text style={{ fontSize: 16, marginRight: 7 }}>{flag}</Text>
+      <Text style={{ fontSize: 14, marginRight: 7 }}>{flag}</Text>
       <Text
         style={{
-          fontFamily: 'JetBrainsMono_400Regular',
+          fontFamily: FONT_MONO,
           fontSize: 11,
           fontWeight: '700',
           color: selected ? '#FFFFFF' : '#15140F',
-          letterSpacing: 0.6,
+          letterSpacing: 0.5,
           textTransform: 'uppercase',
         }}
       >
@@ -173,40 +164,70 @@ function CountryChip({ flag, code, selected, onPress }: CountryChipProps) {
   );
 }
 
-// ── Section grid (4-col for "all+all" view, 3-col for filtered view) ──────────
-// Explicit row chunking — DO NOT use flexWrap. RN's flexWrap + per-child width
-// reliably squishes children into one row on some Android configs. Manual rows
-// of {flexDirection:'row'} with explicit child widths is bulletproof.
-
-interface SectionGridProps {
-  section: AlbumSection;
-  onCardPress: (cromo: AlbumCromo) => void;
-  compact: boolean;
-  cardWidth: number;
-  cardHeight: number;
-}
-
-function chunk<T>(arr: T[], size: number): T[][] {
+// ─── Grid: explicit row chunking with flex:1 per cell ────────────────────────
+function chunk<T>(arr: T[], n: number): T[][] {
   const out: T[][] = [];
-  for (let i = 0; i < arr.length; i += size) out.push(arr.slice(i, i + size));
+  for (let i = 0; i < arr.length; i += n) out.push(arr.slice(i, i + n));
   return out;
 }
 
-const SectionGrid = React.memo(function SectionGrid({
-  section,
+function Grid({
+  cromos,
+  cols,
+  size,
   onCardPress,
-  compact,
-  cardWidth,
-  cardHeight,
-}: SectionGridProps) {
-  const cardSize = compact ? 'sm' : 'md';
-  const cols = compact ? 4 : 3;
-  const gap = compact ? 10 : 12;
-  const rowGap = compact ? 12 : 14;
-  const rows = chunk(section.cromos, cols);
+}: {
+  cromos: AlbumCromo[];
+  cols: number;
+  size: 'sm' | 'md';
+  onCardPress: (c: AlbumCromo) => void;
+}) {
+  const rows = chunk(cromos, cols);
+  const gap = size === 'sm' ? 10 : 12;
+  const rowGap = size === 'sm' ? 12 : 14;
 
   return (
-    <View style={styles.sectionBlock}>
+    <View style={{ paddingHorizontal: 20, paddingTop: 4 }}>
+      {rows.map((row, i) => (
+        <View
+          key={i}
+          style={{
+            flexDirection: 'row',
+            gap,
+            marginBottom: i < rows.length - 1 ? rowGap : 6,
+          }}
+        >
+          {row.map((cromo) => (
+            <View key={cromo.id} style={{ flex: 1 }}>
+              <CromoCard cromo={cromo} size={size} onPress={() => onCardPress(cromo)} />
+            </View>
+          ))}
+          {/* Spacers for the last row so cards stay left-aligned */}
+          {row.length < cols &&
+            Array.from({ length: cols - row.length }).map((_, j) => (
+              <View key={`sp-${j}`} style={{ flex: 1 }} />
+            ))}
+        </View>
+      ))}
+    </View>
+  );
+}
+
+// ─── Per-country section ─────────────────────────────────────────────────────
+function PerCountrySection({
+  section,
+  cols,
+  size,
+  onCardPress,
+}: {
+  section: AlbumSection;
+  cols: number;
+  size: 'sm' | 'md';
+  onCardPress: (c: AlbumCromo) => void;
+}) {
+  if (section.cromos.length === 0) return null;
+  return (
+    <View style={{ marginBottom: 18 }}>
       <SectionHeader
         flagEmoji={section.country.flag_emoji}
         countryCode={section.country.code}
@@ -215,196 +236,74 @@ const SectionGrid = React.memo(function SectionGrid({
         total={section.total}
         accent={section.country.accent}
       />
-
-      <View style={{ paddingHorizontal: 20, paddingTop: 8, paddingBottom: 4 }}>
-        {rows.map((row, rowIdx) => (
-          <View
-            key={rowIdx}
-            style={{
-              flexDirection: 'row',
-              gap,
-              marginBottom: rowIdx < rows.length - 1 ? rowGap : 0,
-            }}
-          >
-            {row.map((cromo) => (
-              <CromoCard
-                key={cromo.id}
-                cromo={cromo}
-                size={cardSize}
-                width={cardWidth}
-                height={cardHeight}
-                onPress={() => onCardPress(cromo)}
-              />
-            ))}
-            {/* Spacers to keep last row's cards left-aligned */}
-            {row.length < cols &&
-              Array.from({ length: cols - row.length }).map((_, i) => (
-                <View key={`spacer-${i}`} style={{ width: cardWidth }} />
-              ))}
-          </View>
-        ))}
-      </View>
-    </View>
-  );
-});
-
-// ── Flat grid for filtered views ──────────────────────────────────────────────
-
-interface FlatGridProps {
-  cromos: AlbumCromo[];
-  onCardPress: (cromo: AlbumCromo) => void;
-  cardWidth: number;
-  cardHeight: number;
-}
-
-function FlatGrid({ cromos, onCardPress, cardWidth, cardHeight }: FlatGridProps) {
-  const cols = 3;
-  const gap = 12;
-  const rowGap = 14;
-  const rows = chunk(cromos, cols);
-
-  return (
-    <View style={{ paddingHorizontal: 20, paddingTop: 8, paddingBottom: 4 }}>
-      {rows.map((row, rowIdx) => (
-        <View
-          key={rowIdx}
-          style={{
-            flexDirection: 'row',
-            gap,
-            marginBottom: rowIdx < rows.length - 1 ? rowGap : 0,
-          }}
-        >
-          {row.map((cromo) => (
-            <CromoCard
-              key={cromo.id}
-              cromo={cromo}
-              size="md"
-              width={cardWidth}
-              height={cardHeight}
-              onPress={() => onCardPress(cromo)}
-            />
-          ))}
-          {row.length < cols &&
-            Array.from({ length: cols - row.length }).map((_, i) => (
-              <View key={`spacer-${i}`} style={{ width: cardWidth }} />
-            ))}
-        </View>
-      ))}
+      <Grid cromos={section.cromos} cols={cols} size={size} onCardPress={onCardPress} />
     </View>
   );
 }
 
-// ── Empty state ───────────────────────────────────────────────────────────────
-
-function EmptyState() {
-  return (
-    <View style={styles.emptyState}>
-      <Text style={styles.emptyText}>No hay cromos con ese filtro.</Text>
-    </View>
-  );
-}
-
-// ── AlbumScreen ───────────────────────────────────────────────────────────────
-
+// ─── AlbumScreen ─────────────────────────────────────────────────────────────
 export default function AlbumScreen() {
   const { isGuest } = useSession();
   const { sections, stats, isLoading, isRefetching, refetch } = useAlbum();
   const { status, country, setStatus, setCountry } = useAlbumFilters();
-  const [selectedCromo, setSelectedCromo] = useState<AlbumCromo | null>(null);
+  const [selected, setSelected] = useState<AlbumCromo | null>(null);
 
-  // ── Card dimensions computed from screen — guarantees 4 (or 3) per row ───
-  const { width: screenWidth } = useWindowDimensions();
-  const cardSm = useMemo(() => {
-    const cols = 4;
-    const gap = 10;
-    const horizPadding = 20;
-    const w = Math.floor((screenWidth - horizPadding * 2 - gap * (cols - 1)) / cols);
-    return { width: w, height: Math.round((w * 100) / 72) };
-  }, [screenWidth]);
-  const cardMd = useMemo(() => {
-    const cols = 3;
-    const gap = 12;
-    const horizPadding = 20;
-    const w = Math.floor((screenWidth - horizPadding * 2 - gap * (cols - 1)) / cols);
-    return { width: w, height: Math.round((w * 128) / 92) };
-  }, [screenWidth]);
+  // All cromos flat (for counts and filtered flat view)
+  const allCromos = useMemo(() => sections.flatMap((s) => s.cromos), [sections]);
 
-  // ── Derived filter counts ─────────────────────────────────────────────────
-  const allCromos = useMemo(
-    () => sections.flatMap((s) => s.cromos),
-    [sections]
-  );
   const filterCounts = useMemo(() => {
-    const total = allCromos.length;
-    const missing = allCromos.filter((c) => c.status === 'missing').length;
-    const repeated = allCromos.filter((c) => c.status === 'repeated').length;
-    const have = allCromos.filter((c) => c.status === 'have').length;
-    return { all: total, missing, repeated, have };
+    return {
+      all: allCromos.length,
+      missing: allCromos.filter((c) => c.status === 'missing').length,
+      repeated: allCromos.filter((c) => c.status === 'repeated').length,
+      have: allCromos.filter((c) => c.status === 'have' || c.status === 'repeated').length,
+    };
   }, [allCromos]);
 
-  // ── Filtered sections / flat list ─────────────────────────────────────────
-  const isDefaultView = status === 'all' && country === null;
-
-  const filteredSections = useMemo<AlbumSection[]>(() => {
+  // Filter the sections
+  const filteredSections = useMemo(() => {
     return sections
-      .map((section) => {
-        const filteredCromos = applyFilters(section.cromos, status, country);
+      .map((s) => {
+        const filtered = applyFilters(s.cromos, status, country);
         return {
-          ...section,
-          cromos: filteredCromos,
-          ownedCount: filteredCromos.filter((c) => c.status !== 'missing').length,
+          ...s,
+          cromos: filtered,
+          ownedCount: filtered.filter((c) => c.status !== 'missing').length,
         };
       })
-      .filter((s) => {
-        if (country !== null && s.country.code !== country) return false;
-        // When in default view: include all sections (even zero-cromo sections
-        // are hidden because the grid renders nothing)
-        return true;
-      });
+      .filter((s) => (country === null ? true : s.country.code === country));
   }, [sections, status, country]);
 
-  const flatCromos = useMemo<AlbumCromo[]>(() => {
-    if (isDefaultView) return [];
-    return filteredSections.flatMap((s) => s.cromos);
-  }, [filteredSections, isDefaultView]);
+  const flatCromos = useMemo(() => filteredSections.flatMap((s) => s.cromos), [filteredSections]);
+  const totalVisible = flatCromos.length;
 
-  const totalVisible = isDefaultView
-    ? filteredSections.reduce((sum, s) => sum + s.cromos.length, 0)
-    : flatCromos.length;
+  const isDefaultView = status === 'all' && country === null;
+  const cols = isDefaultView ? 4 : 3;
+  const size: 'sm' | 'md' = isDefaultView ? 'sm' : 'md';
 
-  // ── Country codes for chip row ────────────────────────────────────────────
-  const countryCodes = useMemo(
+  const countryRow = useMemo(
     () => sections.map((s) => ({ code: s.country.code, flag: s.country.flag_emoji })),
-    [sections]
+    [sections],
   );
 
-  // ── Handlers ─────────────────────────────────────────────────────────────
-  const handleCardPress = useCallback((cromo: AlbumCromo) => {
-    setSelectedCromo(cromo);
-  }, []);
+  const handlePress = useCallback((c: AlbumCromo) => setSelected(c), []);
+  const handleClose = useCallback(() => setSelected(null), []);
 
-  const handleSheetClose = useCallback(() => {
-    setSelectedCromo(null);
-  }, []);
-
-  // ── Loading ───────────────────────────────────────────────────────────────
   if (isLoading) {
     return (
       <Screen>
-        <View style={styles.loadingContainer}>
+        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
           <ActivityIndicator size="large" color={C.accent} />
         </View>
       </Screen>
     );
   }
 
-  // ── Render ────────────────────────────────────────────────────────────────
   return (
     <Screen>
       <ScrollView
-        style={styles.scroll}
-        contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
+        contentContainerStyle={{ paddingBottom: 90 }}
         refreshControl={
           <RefreshControl
             refreshing={isRefetching}
@@ -414,23 +313,55 @@ export default function AlbumScreen() {
           />
         }
       >
-        {/* ── TopBar — matches design v2 (components.jsx → TopBar) ───
-            Flex row: text column (subtitle + title) + IconBtn search on the right.
-            subtitle: mono 10 / letterSpacing 1 / uppercase / muted.
-            title: Manrope ExtraBold 26 / letterSpacing -0.6 / lineHeight 1.1. */}
-        <View style={styles.topBar}>
-          <View style={styles.topBarText}>
-            <Text style={styles.heroSubtitle}>MUNDIAL 2026</Text>
-            <Text style={styles.heroTitle}>El álbum</Text>
+        {/* ── Top bar: title + search icon ───────────────────── */}
+        <View
+          style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            paddingHorizontal: 20,
+            paddingTop: 12,
+            paddingBottom: 16,
+          }}
+        >
+          <View>
+            <Text
+              style={{
+                fontFamily: FONT_MONO,
+                fontSize: 11,
+                color: C.muted,
+                letterSpacing: 1.6,
+              }}
+            >
+              MUNDIAL 2026
+            </Text>
+            <Text
+              style={{
+                fontFamily: FONT_MANROPE_X,
+                fontSize: 32,
+                fontWeight: '800',
+                color: C.ink,
+                letterSpacing: -1,
+                lineHeight: 38,
+              }}
+            >
+              El álbum
+            </Text>
           </View>
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="Buscar cromos"
-            hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}
-            style={({ pressed }) => [
-              styles.iconBtn,
-              pressed && styles.iconBtnPressed,
-            ]}
+            style={({ pressed }) => ({
+              width: 36,
+              height: 36,
+              borderRadius: 18,
+              backgroundColor: '#FFFFFF',
+              borderWidth: 1,
+              borderColor: C.hairline,
+              alignItems: 'center',
+              justifyContent: 'center',
+              opacity: pressed ? 0.7 : 1,
+            })}
           >
             <Svg width={16} height={16} viewBox="0 0 24 24" fill="none">
               <Path
@@ -443,20 +374,18 @@ export default function AlbumScreen() {
           </Pressable>
         </View>
 
-        {/* Guest banner */}
+        {/* ── Guest banner (only for anon users) ───────────── */}
         {isGuest && (
-          <View style={styles.guestBanner}>
+          <View style={{ marginHorizontal: 20, marginBottom: 12 }}>
             <RegisterPrompt feature="intercambios" />
           </View>
         )}
 
-        {/* ── Status filter pills ─────────────────────────── */}
+        {/* ── Status filter pills ──────────────────────────── */}
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.pillRow}
-          style={styles.pillScroll}
-          accessibilityLabel="Filtrar por estado"
+          contentContainerStyle={{ paddingHorizontal: 20, gap: 8, paddingBottom: 12 }}
         >
           {STATUS_FILTERS.map((f) => (
             <FilterPill
@@ -473,18 +402,15 @@ export default function AlbumScreen() {
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.chipRow}
-          style={styles.chipScroll}
-          accessibilityLabel="Filtrar por país"
+          contentContainerStyle={{ paddingHorizontal: 20, gap: 6, paddingBottom: 16 }}
         >
-          {/* All-countries reset */}
           <CountryChip
             flag="🌍"
-            code="all"
+            code="ALL"
             selected={country === null}
             onPress={() => setCountry(null)}
           />
-          {countryCodes.map(({ code, flag }) => (
+          {countryRow.map(({ code, flag }) => (
             <CountryChip
               key={code}
               flag={flag}
@@ -495,275 +421,52 @@ export default function AlbumScreen() {
           ))}
         </ScrollView>
 
-        {/* ── Card area ───────────────────────────────────── */}
+        {/* ── Grid area ────────────────────────────────────── */}
         {totalVisible === 0 ? (
-          <EmptyState />
+          <View style={{ paddingVertical: 48, alignItems: 'center', paddingHorizontal: 32 }}>
+            <Text
+              style={{
+                fontFamily: FONT_MANROPE,
+                fontSize: 14,
+                color: C.muted,
+                textAlign: 'center',
+              }}
+            >
+              No hay cromos con ese filtro.
+            </Text>
+          </View>
         ) : isDefaultView ? (
-          filteredSections.map((section) =>
-            section.cromos.length > 0 ? (
-              <SectionGrid
-                key={section.country.code}
-                section={section}
-                onCardPress={handleCardPress}
-                compact={true}
-                cardWidth={cardSm.width}
-                cardHeight={cardSm.height}
-              />
-            ) : null
-          )
+          // Per-country sections, 4-col sm grid
+          filteredSections.map((s) => (
+            <PerCountrySection
+              key={s.country.code}
+              section={s}
+              cols={cols}
+              size={size}
+              onCardPress={handlePress}
+            />
+          ))
+        ) : country !== null ? (
+          // Country filtered — show single section header + grid
+          filteredSections.map((s) => (
+            <PerCountrySection
+              key={s.country.code}
+              section={s}
+              cols={cols}
+              size={size}
+              onCardPress={handlePress}
+            />
+          ))
         ) : (
-          <>
-            {country !== null &&
-              filteredSections.map((section) =>
-                section.cromos.length > 0 ? (
-                  <SectionGrid
-                    key={section.country.code}
-                    section={section}
-                    onCardPress={handleCardPress}
-                    compact={false}
-                    cardWidth={cardMd.width}
-                    cardHeight={cardMd.height}
-                  />
-                ) : null
-              )}
-            {country === null && (
-              <FlatGrid
-                cromos={flatCromos}
-                onCardPress={handleCardPress}
-                cardWidth={cardMd.width}
-                cardHeight={cardMd.height}
-              />
-            )}
-          </>
+          // Status-only filtered (all countries) — flat 3-col grid
+          <Grid cromos={flatCromos} cols={cols} size={size} onCardPress={handlePress} />
         )}
       </ScrollView>
 
-      {/* ── Detail sheet ─────────────────────────────────── */}
-      <BottomSheet
-        visible={selectedCromo !== null}
-        onClose={handleSheetClose}
-      >
-        {selectedCromo && (
-          <CromoDetailSheet cromo={selectedCromo} onClose={handleSheetClose} />
-        )}
+      {/* ── Detail sheet on tap ─────────────────────────────── */}
+      <BottomSheet visible={selected !== null} onClose={handleClose}>
+        {selected && <CromoDetailSheet cromo={selected} onClose={handleClose} />}
       </BottomSheet>
     </Screen>
   );
 }
-
-// ── Styles ────────────────────────────────────────────────────────────────────
-
-const styles = StyleSheet.create({
-  // Loading
-  loadingContainer: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-
-  // Root scroll
-  scroll: {
-    flex: 1,
-  },
-  scrollContent: {
-    paddingBottom: spacing[12],
-  },
-
-  // TopBar — flex row, padding 14/20/12, gap 12 between text and right slot
-  topBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing[3], // 12 — matches design TopBar gap
-    paddingHorizontal: spacing[5], // 20
-    paddingTop: 14,
-    paddingBottom: spacing[3], // 12
-  },
-  topBarText: {
-    flex: 1,
-    minWidth: 0,
-  },
-  heroSubtitle: {
-    fontFamily: FONTS.mono,
-    fontSize: 10,
-    color: C.muted,
-    letterSpacing: 1,
-    textTransform: 'uppercase',
-  },
-  heroTitle: {
-    fontFamily: FONTS.manropeExtraBold,
-    fontSize: 26,
-    color: C.ink,
-    letterSpacing: -0.6,
-    lineHeight: 29, // 26 * 1.1 per design
-  },
-
-  // IconBtn — circular paper2 button, 40×40, matches components.jsx IconBtn tone="paper"
-  iconBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: radii.full,
-    backgroundColor: C.paper2,
-    alignItems: 'center',
-    justifyContent: 'center',
-    flexShrink: 0,
-  },
-  iconBtnPressed: {
-    opacity: 0.75,
-  },
-
-  // Guest banner
-  guestBanner: {
-    marginHorizontal: spacing[5],
-    marginBottom: spacing[3],
-    minHeight: 60,
-  },
-
-  // Status filter pills
-  pillScroll: {
-    marginBottom: spacing[2],
-  },
-  pillRow: {
-    paddingHorizontal: spacing[5],
-    gap: spacing[2],
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  pill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 7,
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: radii.full,
-    minHeight: 40,
-    // Subtle shadow so the white pills pop against the warm paper bg
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.04,
-    shadowRadius: 2,
-    elevation: 1,
-  },
-  pillIdle: {
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1,
-    borderColor: C.hairline,
-  },
-  pillSelected: {
-    backgroundColor: C.ink,
-    borderWidth: 0,
-  },
-  pillPressed: {
-    opacity: 0.78,
-  },
-  pillLabel: {
-    fontFamily: FONTS.manropeBold,
-    fontSize: 13,
-    letterSpacing: -0.1,
-    color: C.ink,
-  },
-  pillLabelSelected: {
-    color: '#FFFFFF',
-  },
-  pillCount: {
-    fontFamily: FONTS.mono,
-    fontSize: 11,
-    fontWeight: '700',
-    color: C.muted,
-  },
-  pillCountSelected: {
-    color: '#FFFFFF',
-    opacity: 0.7,
-  },
-
-  // Country chips
-  chipScroll: {
-    marginBottom: spacing[3],
-  },
-  chipRow: {
-    paddingHorizontal: spacing[5],
-    gap: spacing[1] + 2, // 6px
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  countryChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 7,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: radii.full,
-    minHeight: 36,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.04,
-    shadowRadius: 2,
-    elevation: 1,
-  },
-  countryChipIdle: {
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1,
-    borderColor: C.hairline,
-  },
-  countryChipSelected: {
-    backgroundColor: C.ink,
-    borderWidth: 0,
-  },
-  countryChipFlag: {
-    fontSize: 16,
-    fontFamily: 'System',
-  },
-  countryChipCode: {
-    fontFamily: FONTS.mono,
-    fontSize: 11,
-    fontWeight: '700',
-    letterSpacing: 0.6,
-    color: C.ink,
-    textTransform: 'uppercase',
-  },
-  countryChipCodeSelected: {
-    color: '#FFFFFF',
-  },
-
-  // Section blocks
-  sectionBlock: {
-    marginBottom: spacing[6],
-  },
-
-  // Grid containers
-  // SectionList → ScrollView: now just flexWrap on the outer container.
-  // The parent ScrollView measures this correctly (unlike SectionList renderItem).
-  grid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    paddingHorizontal: spacing[5], // 20px each side = 40px total
-  },
-  grid4col: {
-    // 4 × 72px cards + 3 × 10px gaps = 318px → fits 360px wide phone ✓
-    columnGap: 10,
-    rowGap: 12,
-    paddingTop: spacing[2],
-    paddingBottom: spacing[2],
-  },
-  grid3col: {
-    columnGap: 12,
-    rowGap: 14,
-    paddingTop: spacing[2],
-    paddingBottom: spacing[2],
-  },
-  flatGridPadding: {
-    paddingTop: spacing[2],
-  },
-
-  // Empty state
-  emptyState: {
-    paddingVertical: spacing[12],
-    alignItems: 'center',
-    paddingHorizontal: spacing[6],
-  },
-  emptyText: {
-    fontFamily: FONTS.manrope,
-    fontSize: 15,
-    color: C.muted,
-    textAlign: 'center',
-  },
-});

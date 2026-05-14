@@ -3,10 +3,20 @@
   "compilerOptions": {
     "strict": true,
     "exactOptionalPropertyTypes": false,
-    "types": ["@types/jest"],
+    "types": [
+      "@types/jest"
+    ],
     "paths": {
-      "@/*": ["./src/*"]
+      "@/*": [
+        "./src/*"
+      ]
     }
   },
-  "include": ["src", "__tests__", "**/*.tsx", "**/*.ts"]
+  "include": [
+    "src",
+    "__tests__",
+    "**/*.tsx",
+    "**/*.ts",
+    "nativewind-env.d.ts"
+  ]
 }

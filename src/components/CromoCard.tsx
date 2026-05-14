@@ -1,342 +1,238 @@
 /**
- * CromoCard — sticker card faithful to the Claude Design v2 reference.
+ * CromoCard — sticker card, faithful to Claude Design v3 (components.jsx).
  *
- * Structure (HAVE state):
- *   ┌─────────────────────────┐
- *   │ ▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰ │  ← 2-color top stripe band (jersey colors)
- *   │ 001  04          🇪🇨   │  ← header: small num · big jersey · flag
- *   │       ↑↑                 │
- *   │   diagonal stripes (accent at 12-15% opacity)
- *   │                          │
- *   ├─────────────────────────┤
- *   │ H. NAVARRO              │  ← name strip, white, Manrope bold
- *   └─────────────────────────┘
+ * The card is FLEX-SIZED: it fills 100% width of its parent column and uses
+ * `aspectRatio` for height. The parent is responsible for the column layout
+ * (`<View style={{flex:1}}>` inside a row of N items = N equal columns).
+ * That way the card scales correctly on any screen width.
  *
- * MISSING state: dashed border, just the 3-digit padded number centered.
- * LEGENDARIO: dark bg + gold accents + gold corner dot.
- * REPEATED: dark ×N pill in top-right.
+ * Two sizes:
+ *   - 'sm' (4-col grid): 72×100 aspect = 0.72
+ *   - 'md' (3-col grid): 92×128 aspect = 0.71875 (call it 92/128)
+ *
+ * States:
+ *   - missing: dashed border (drawn via SVG — RN's borderStyle:dashed is
+ *     broken on Android), centered 3-digit padded number, transparent bg.
+ *   - have: top 2-color stripe, header (num+flag), portrait area with
+ *     diagonal stripes + big jersey number, bottom name strip.
+ *   - repeated: like have + dark ×N pill top-right.
+ *   - legendario: dark bg + gold accents + gold corner dot.
  */
-import React, { memo, useMemo } from 'react';
+import React, { memo } from 'react';
 import { Pressable, View, Text, StyleSheet } from 'react-native';
-import Svg, { Line, Rect } from 'react-native-svg';
-import { C, RARITIES, cromoDims, radii, FONTS } from '@/theme';
-import type { CromoDimKey } from '@/theme';
+import Svg, { Rect, Line } from 'react-native-svg';
+import { C } from '@/theme';
 import type { AlbumCromo } from '@/lib/album-types';
+
+const FONT_MANROPE = 'Manrope_700Bold';
+const FONT_MANROPE_X = 'Manrope_800ExtraBold';
+const FONT_MONO = 'JetBrainsMono_400Regular';
+
+const LEGEND_BG = '#1F1B14';
+const LEGEND_TEXT = '#F2E8C9';
+const LEGEND_GOLD = '#FFD46B';
+
+type Size = 'sm' | 'md';
 
 interface CromoCardProps {
   cromo: AlbumCromo;
-  size?: CromoDimKey;
+  size?: Size;
   onPress?: () => void;
-  /** Override the size preset's width — caller computed from screen width. */
-  width?: number;
-  /** Override the size preset's height — usually computed to keep aspect ratio. */
-  height?: number;
 }
-
-const statusLabel: Record<AlbumCromo['status'], string> = {
-  missing: 'falta',
-  have: 'tengo',
-  repeated: 'repetido',
-};
-
-/** Big jersey number font size per card size (xs is skipped) */
-const JERSEY_FONT_SIZE: Record<CromoDimKey, number> = {
-  xs: 0,
-  sm: 22,
-  md: 28,
-  lg: 42,
-  xl: 60,
-};
-
-/** Top stripe band height per size */
-const STRIPE_HEIGHT: Record<CromoDimKey, number> = {
-  xs: 5,
-  sm: 7,
-  md: 9,
-  lg: 10,
-  xl: 12,
-};
-
-/** Bottom name-strip height (when name is shown) per size */
-const NAME_STRIP_HEIGHT: Record<CromoDimKey, number> = {
-  xs: 0,
-  sm: 18,
-  md: 22,
-  lg: 30,
-  xl: 42,
-};
 
 /**
- * Build an array of diagonal Line coords that fill width × height with
- * stripes at the given angle. Cheaper + more reliable than SVG <Pattern>.
+ * Each card size defines its TYPOGRAPHIC scale. Card width is from the parent
+ * (flex:1), height comes from aspectRatio.
  */
-function buildDiagonalLines(
-  width: number,
-  height: number,
-  spacing: number,
-): Array<{ x1: number; y1: number; x2: number; y2: number; key: number }> {
-  const lines = [];
-  // Start lines from -height to width so they cover the whole area when rotated 45°
-  const start = -height;
-  const end = width;
-  let i = 0;
-  for (let x = start; x <= end; x += spacing) {
-    lines.push({
-      x1: x,
-      y1: 0,
-      x2: x + height,
-      y2: height,
-      key: i++,
-    });
+const TYPO: Record<
+  Size,
+  {
+    stripeH: number;        // top stripe band height
+    numFont: number;        // top-left index number
+    flagFont: number;       // flag emoji size
+    jerseyFont: number;     // big background jersey number
+    nameFont: number;       // bottom player name
+    namePad: number;        // bottom strip vertical padding
+    aspect: number;         // width / height
   }
-  return lines;
-}
+> = {
+  sm: { stripeH: 8,  numFont: 10, flagFont: 16, jerseyFont: 26, nameFont: 9,  namePad: 5, aspect: 72 / 100 },
+  md: { stripeH: 10, numFont: 12, flagFont: 22, jerseyFont: 32, nameFont: 11, namePad: 6, aspect: 92 / 128 },
+};
 
-function CromoCardInner({ cromo, size = 'sm', onPress, width, height }: CromoCardProps) {
-  const preset = cromoDims[size];
-  // Use the override when provided, otherwise the size preset.
-  const dims = {
-    ...preset,
-    width: width ?? preset.width,
-    height: height ?? preset.height,
-  };
-  const isLegendario = cromo.rarity_id === 'legendario';
+function CromoCardInner({ cromo, size = 'sm', onPress }: CromoCardProps) {
+  const t = TYPO[size];
+  const isLegend = cromo.rarity_id === 'legendario';
   const isMissing = cromo.status === 'missing';
   const isRepeated = cromo.status === 'repeated';
-  const hasName = dims.name > 0 && !isMissing;
-  const showJersey = size !== 'xs' && !isMissing;
-
-  // Colors
-  const legendBg = RARITIES.legendario.bg;
-  const legendText = RARITIES.legendario.text;
-  const legendDot = RARITIES.legendario.dot;
-  const cardBg = isMissing ? 'transparent' : isLegendario ? legendBg : '#FFFFFF';
-  const indexColor = isLegendario ? 'rgba(242,232,201,0.7)' : C.muted;
-  const nameColor = isLegendario ? legendText : C.ink;
-  const accent = cromo.accent || C.accent;
 
   const numStr = String(cromo.n).padStart(3, '0');
-  const jerseyStr =
-    cromo.jersey != null ? String(cromo.jersey).padStart(2, '0') : '--';
+  const jerseyStr = cromo.jersey != null ? String(cromo.jersey).padStart(2, '0') : '--';
 
-  const a11yLabel = `Cromo ${cromo.n} ${cromo.country_name} ${cromo.player_name}, ${
-    isRepeated ? `repetido ×${cromo.quantity}` : statusLabel[cromo.status]
+  const a11yLabel = `Cromo ${cromo.n} ${cromo.country_name}, ${
+    isMissing ? 'falta' : isRepeated ? `repetido ×${cromo.quantity}` : 'tengo'
   }`;
 
-  // Diagonal stripe overlay (inside the portrait area)
-  const stripeBand = STRIPE_HEIGHT[size];
-  const nameStrip = hasName ? NAME_STRIP_HEIGHT[size] : 0;
-  const portraitW = dims.width;
-  const portraitH = dims.height - stripeBand - nameStrip;
-  const stripeSpacing = size === 'sm' ? 6 : 8;
-  const diagonalLines = useMemo(
-    () => (showJersey ? buildDiagonalLines(portraitW, portraitH, stripeSpacing) : []),
-    [portraitW, portraitH, stripeSpacing, showJersey],
-  );
+  // ────── MISSING ──────
+  if (isMissing) {
+    return (
+      <Pressable
+        onPress={onPress}
+        accessibilityRole="button"
+        accessibilityLabel={a11yLabel}
+        style={({ pressed }) => [
+          styles.cardRoot,
+          { aspectRatio: t.aspect, backgroundColor: 'transparent' },
+          pressed && { opacity: 0.6 },
+        ]}
+      >
+        {/* SVG dashed border (RN dashed CSS is broken on Android) */}
+        <Svg
+          width="100%"
+          height="100%"
+          pointerEvents="none"
+          style={StyleSheet.absoluteFill}
+        >
+          <Rect
+            x={1}
+            y={1}
+            width="98%"
+            height="98%"
+            rx={6}
+            ry={6}
+            stroke="#C0BAA9"
+            strokeWidth={1.25}
+            fill="none"
+            strokeDasharray="4 4"
+          />
+        </Svg>
+        <View style={styles.center}>
+          <Text style={[styles.missingNum, { fontSize: t.numFont + 1 }]}>{numStr}</Text>
+        </View>
+      </Pressable>
+    );
+  }
+
+  // ────── HAVE / REPEATED / LEGENDARIO ──────
+  const cardBg = isLegend ? LEGEND_BG : '#FFFFFF';
+  const indexColor = isLegend ? 'rgba(242,232,201,0.65)' : C.muted;
+  const nameColor = isLegend ? LEGEND_TEXT : C.ink;
+  const jerseyColor = isLegend ? LEGEND_GOLD : cromo.accent || C.accent;
+  const accent = cromo.accent || C.accent;
 
   return (
     <Pressable
       onPress={onPress}
       accessibilityRole="button"
       accessibilityLabel={a11yLabel}
-      hitSlop={
-        size === 'xs'
-          ? { top: 6, bottom: 6, left: 6, right: 6 }
-          : { top: 2, bottom: 2, left: 2, right: 2 }
-      }
       style={({ pressed }) => [
+        styles.cardRoot,
         {
-          width: dims.width,
-          height: dims.height,
-          flexShrink: 0,
-          flexGrow: 0,
+          aspectRatio: t.aspect,
           backgroundColor: cardBg,
-          borderRadius: radii.md,
-          position: 'relative',
-          // overflow:hidden ONLY for non-missing — keeps the dashed-SVG overlay
-          // visible at the edges of missing cards.
-          ...(isMissing
-            ? {
-                alignItems: 'center',
-                justifyContent: 'center',
-              }
-            : {
-                overflow: 'hidden',
-                shadowColor: '#000',
-                shadowOffset: { width: 0, height: 1 },
-                shadowOpacity: 0.06,
-                shadowRadius: 4,
-                elevation: 2,
-                borderWidth: 0.5,
-                borderColor: C.hairline,
-              }),
+          borderWidth: 0.5,
+          borderColor: isLegend ? 'rgba(242,232,201,0.2)' : C.hairline,
+          overflow: 'hidden',
+          shadowColor: '#000',
+          shadowOffset: { width: 0, height: 1 },
+          shadowOpacity: 0.06,
+          shadowRadius: 3,
+          elevation: 1,
         },
-        pressed && { opacity: 0.85, transform: [{ scale: 0.97 }] },
+        pressed && { opacity: 0.85 },
       ]}
     >
-      {/* ─ MISSING state ──────────────────────────────────── */}
-      {isMissing && (
-        <>
-          {/* SVG-drawn dashed border — RN's `borderStyle: dashed` is broken on
-              Android. Explicit absolute positioning (no absoluteFill) avoids the
-              double-size confusion that was making the dashes look overlapped. */}
-          <Svg
-            width={dims.width}
-            height={dims.height}
-            pointerEvents="none"
-            style={{ position: 'absolute', top: 0, left: 0 }}
-          >
-            <Rect
-              x={1}
-              y={1}
-              width={dims.width - 2}
-              height={dims.height - 2}
-              rx={8}
-              ry={8}
-              stroke="#C0BAA9"
-              strokeWidth={1.25}
-              fill="none"
-              strokeDasharray="4 4"
-            />
-          </Svg>
-          <Text style={[styles.missingNumber, { fontSize: Math.max(dims.num, 11) }]}>
-            {numStr}
-          </Text>
-        </>
+      {/* 1) Top 2-color stripe band */}
+      <View style={{ height: t.stripeH, flexDirection: 'row' }}>
+        <View style={{ flex: 1, backgroundColor: cromo.stripe }} />
+        <View style={{ flex: 1, backgroundColor: cromo.stripe2 }} />
+      </View>
+
+      {/* 2) Header row: index number (left) + flag (right) */}
+      <View style={styles.headerRow}>
+        <Text style={[styles.indexNum, { fontSize: t.numFont, color: indexColor }]}>
+          {numStr}
+        </Text>
+        <Text style={{ fontSize: t.flagFont, lineHeight: t.flagFont + 2 }}>
+          {cromo.flag_emoji}
+        </Text>
+      </View>
+
+      {/* 3) Portrait area: diagonal stripes background + BIG jersey number */}
+      <View
+        style={[
+          styles.portrait,
+          { backgroundColor: isLegend ? 'rgba(255,212,107,0.08)' : `${accent}11` },
+        ]}
+      >
+        <Svg width="100%" height="100%" style={StyleSheet.absoluteFill}>
+          {/* Diagonal stripe pattern: ~25 lines at 45° */}
+          {Array.from({ length: 26 }).map((_, i) => {
+            const offset = i * 7 - 60;
+            return (
+              <Line
+                key={i}
+                x1={offset}
+                y1={0}
+                x2={offset + 200}
+                y2={200}
+                stroke={isLegend ? LEGEND_GOLD : accent}
+                strokeWidth={1.2}
+                strokeOpacity={isLegend ? 0.18 : 0.16}
+              />
+            );
+          })}
+        </Svg>
+        <Text
+          style={{
+            fontFamily: FONT_MONO,
+            fontSize: t.jerseyFont,
+            fontWeight: '700',
+            color: jerseyColor,
+            opacity: isLegend ? 1 : 0.5,
+            letterSpacing: -1.5,
+          }}
+        >
+          {jerseyStr}
+        </Text>
+      </View>
+
+      {/* 4) Bottom name strip */}
+      <View
+        style={[
+          styles.nameStrip,
+          {
+            paddingVertical: t.namePad,
+            borderTopColor: isLegend ? 'rgba(242,232,201,0.15)' : C.hairline,
+            backgroundColor: isLegend ? LEGEND_BG : '#FFFFFF',
+          },
+        ]}
+      >
+        <Text
+          style={{
+            fontFamily: FONT_MANROPE,
+            fontSize: t.nameFont,
+            fontWeight: '700',
+            color: nameColor,
+            letterSpacing: -0.2,
+          }}
+          numberOfLines={1}
+          ellipsizeMode="tail"
+        >
+          {cromo.player_name}
+        </Text>
+      </View>
+
+      {/* Legendario gold corner dot */}
+      {isLegend && (
+        <View style={styles.legendDot} />
       )}
 
-      {/* ─ HAVE / REPEATED state ─────────────────────────── */}
-      {!isMissing && (
-        <>
-          {/* 1) Top 2-color stripe band */}
-          <View style={[styles.stripeRow, { height: stripeBand }]}>
-            <View style={[styles.stripeHalf, { backgroundColor: cromo.stripe }]} />
-            <View style={[styles.stripeHalf, { backgroundColor: cromo.stripe2 }]} />
-          </View>
-
-          {/* 2) Portrait area: diagonal stripes background + big jersey number */}
-          {showJersey && (
-            <View
-              style={[
-                styles.portrait,
-                {
-                  top: stripeBand,
-                  height: portraitH,
-                  backgroundColor: isLegendario
-                    ? 'rgba(255,212,107,0.10)'
-                    : `${accent}10`,
-                },
-              ]}
-            >
-              {/* Diagonal lines drawn explicitly — reliable in RN */}
-              <Svg
-                width={portraitW}
-                height={portraitH}
-                style={StyleSheet.absoluteFill}
-              >
-                {diagonalLines.map((ln) => (
-                  <Line
-                    key={ln.key}
-                    x1={ln.x1}
-                    y1={ln.y1}
-                    x2={ln.x2}
-                    y2={ln.y2}
-                    stroke={isLegendario ? 'rgba(255,212,107,0.20)' : accent}
-                    strokeWidth={size === 'sm' ? 1.4 : 1.8}
-                    strokeOpacity={isLegendario ? 1 : 0.18}
-                  />
-                ))}
-              </Svg>
-
-              {/* Top row over the stripes: small index number + flag */}
-              <View style={[styles.headerOver, { paddingHorizontal: 7 }]}>
-                <View style={styles.headerLeft}>
-                  <Text
-                    style={[
-                      styles.indexNumber,
-                      { fontSize: dims.num, color: indexColor },
-                    ]}
-                  >
-                    {numStr}
-                  </Text>
-                  {/* Big jersey number inline next to the index */}
-                  <Text
-                    style={[
-                      styles.jerseyNumber,
-                      {
-                        fontSize: JERSEY_FONT_SIZE[size],
-                        color: isLegendario ? legendText : accent,
-                        marginLeft: 2,
-                      },
-                    ]}
-                  >
-                    {jerseyStr}
-                  </Text>
-                </View>
-                <Text
-                  style={[
-                    styles.flagEmoji,
-                    { fontSize: dims.flag * 0.95 },
-                  ]}
-                >
-                  {cromo.flag_emoji}
-                </Text>
-              </View>
-            </View>
-          )}
-
-          {/* 3) Bottom name strip */}
-          {hasName && (
-            <View
-              style={[
-                styles.nameStrip,
-                {
-                  height: nameStrip,
-                  paddingHorizontal: size === 'sm' ? 6 : 9,
-                  borderTopColor: isLegendario
-                    ? 'rgba(242,232,201,0.15)'
-                    : C.hairline,
-                  backgroundColor: isLegendario ? legendBg : '#FFFFFF',
-                },
-              ]}
-            >
-              <Text
-                style={[
-                  styles.playerName,
-                  { fontSize: dims.name, color: nameColor },
-                ]}
-                numberOfLines={1}
-                ellipsizeMode="tail"
-              >
-                {cromo.player_name}
-              </Text>
-            </View>
-          )}
-
-          {/* Legendario gold corner dot */}
-          {isLegendario && (
-            <View
-              style={[
-                styles.legendDot,
-                {
-                  backgroundColor: legendDot,
-                  shadowColor: legendDot,
-                  shadowOffset: { width: 0, height: 0 },
-                  shadowOpacity: 0.6,
-                  shadowRadius: 4,
-                },
-              ]}
-              accessibilityElementsHidden
-            />
-          )}
-
-          {/* Repeated ×N pill */}
-          {isRepeated && (
-            <View style={styles.repeatedPill}>
-              <Text style={styles.repeatedText}>×{cromo.quantity}</Text>
-            </View>
-          )}
-        </>
+      {/* Repeated ×N pill */}
+      {isRepeated && (
+        <View style={styles.repeatedPill}>
+          <Text style={styles.repeatedText}>×{cromo.quantity}</Text>
+        </View>
       )}
     </Pressable>
   );
@@ -345,102 +241,78 @@ function CromoCardInner({ cromo, size = 'sm', onPress, width, height }: CromoCar
 export default memo(CromoCardInner);
 
 const styles = StyleSheet.create({
-  // Missing
-  missingContent: {
+  cardRoot: {
+    width: '100%',         // fill parent column (parent is flex:1)
+    borderRadius: 8,
+    position: 'relative',
+  },
+  center: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  missingNumber: {
-    fontFamily: FONTS.mono,
-    fontWeight: '500',
+  missingNum: {
+    fontFamily: FONT_MONO,
     color: C.faint,
     letterSpacing: -0.3,
+    fontWeight: '500',
   },
-
-  // Top stripe band
-  stripeRow: {
-    flexDirection: 'row',
-    width: '100%',
-  },
-  stripeHalf: {
-    flex: 1,
-  },
-
-  // Portrait area (diagonal stripes + big jersey)
-  portrait: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    overflow: 'hidden',
-  },
-  headerOver: {
+  headerRow: {
     flexDirection: 'row',
     alignItems: 'flex-start',
     justifyContent: 'space-between',
-    paddingTop: 4,
+    paddingHorizontal: 7,
+    paddingTop: 5,
   },
-  headerLeft: {
-    flexDirection: 'row',
-    alignItems: 'baseline',
-  },
-  indexNumber: {
-    fontFamily: FONTS.mono,
+  indexNum: {
+    fontFamily: FONT_MONO,
     fontWeight: '600',
     letterSpacing: -0.3,
   },
-  jerseyNumber: {
-    fontFamily: FONTS.mono,
-    fontWeight: '700',
-    letterSpacing: -1.5,
-  },
-  flagEmoji: {
-    lineHeight: undefined,
-    marginTop: -1,
-  },
-
-  // Bottom name strip
-  nameStrip: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    bottom: 0,
+  portrait: {
+    flex: 1,
+    alignItems: 'center',
     justifyContent: 'center',
+    marginHorizontal: 6,
+    marginTop: 1,
+    marginBottom: 2,
+    borderRadius: 4,
+    overflow: 'hidden',
+  },
+  nameStrip: {
+    paddingHorizontal: 7,
     borderTopWidth: 0.5,
   },
-  playerName: {
-    fontFamily: FONTS.manropeBold,
-    letterSpacing: -0.2,
-  },
-
-  // Legendario corner dot
   legendDot: {
     position: 'absolute',
     top: 4,
     left: 4,
     width: 6,
     height: 6,
-    borderRadius: radii.full,
+    borderRadius: 3,
+    backgroundColor: LEGEND_GOLD,
+    shadowColor: LEGEND_GOLD,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.7,
+    shadowRadius: 3,
   },
-
-  // Repeated pill
   repeatedPill: {
     position: 'absolute',
     top: 5,
     right: 5,
     minWidth: 18,
     height: 18,
-    borderRadius: radii.full,
-    backgroundColor: C.ink,
     paddingHorizontal: 5,
+    borderRadius: 9,
+    backgroundColor: C.ink,
     alignItems: 'center',
     justifyContent: 'center',
   },
   repeatedText: {
-    fontFamily: FONTS.mono,
+    fontFamily: FONT_MONO,
     fontSize: 9,
     fontWeight: '700',
-    color: C.card,
+    color: '#FFFFFF',
   },
 });
 
