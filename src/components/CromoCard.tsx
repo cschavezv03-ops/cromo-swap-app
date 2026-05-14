@@ -18,7 +18,7 @@
  */
 import React, { memo, useMemo } from 'react';
 import { Pressable, View, Text, StyleSheet } from 'react-native';
-import Svg, { Line } from 'react-native-svg';
+import Svg, { Line, Rect } from 'react-native-svg';
 import { C, RARITIES, cromoDims, radii, FONTS } from '@/theme';
 import type { CromoDimKey } from '@/theme';
 import type { AlbumCromo } from '@/lib/album-types';
@@ -153,13 +153,10 @@ function CromoCardInner({ cromo, size = 'sm', onPress, width, height }: CromoCar
           backgroundColor: cardBg,
           borderRadius: radii.md,
           position: 'relative',
-          // overflow:hidden ONLY when not missing — on Android dashed borders
-          // disappear when combined with overflow:hidden.
+          // overflow:hidden ONLY for non-missing — keeps the dashed-SVG overlay
+          // visible at the edges of missing cards.
           ...(isMissing
             ? {
-                borderWidth: 2,
-                borderColor: '#C9C3B3',
-                borderStyle: 'dashed',
                 alignItems: 'center',
                 justifyContent: 'center',
               }
@@ -179,9 +176,31 @@ function CromoCardInner({ cromo, size = 'sm', onPress, width, height }: CromoCar
     >
       {/* ─ MISSING state ──────────────────────────────────── */}
       {isMissing && (
-        <Text style={[styles.missingNumber, { fontSize: Math.max(dims.num, 11) }]}>
-          {numStr}
-        </Text>
+        <>
+          {/* SVG-drawn dashed border — RN's `borderStyle: dashed` is broken on
+              Android, so we always draw the dashes ourselves. */}
+          <Svg
+            width={dims.width}
+            height={dims.height}
+            style={StyleSheet.absoluteFill}
+          >
+            <Rect
+              x={1.25}
+              y={1.25}
+              width={dims.width - 2.5}
+              height={dims.height - 2.5}
+              rx={radii.md}
+              ry={radii.md}
+              stroke="#C0BAA9"
+              strokeWidth={1.5}
+              fill="none"
+              strokeDasharray="5 3"
+            />
+          </Svg>
+          <Text style={[styles.missingNumber, { fontSize: Math.max(dims.num, 11) }]}>
+            {numStr}
+          </Text>
+        </>
       )}
 
       {/* ─ HAVE / REPEATED state ─────────────────────────── */}
