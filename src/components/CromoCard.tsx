@@ -38,6 +38,8 @@ interface CromoCardProps {
   cromo: AlbumCromo;
   size?: Size;
   onPress?: () => void;
+  /** Explicit width passed from the parent grid (computed from screen width). */
+  width: number;
 }
 
 /**
@@ -60,8 +62,9 @@ const TYPO: Record<
   md: { stripeH: 10, numFont: 12, flagFont: 22, jerseyFont: 32, nameFont: 11, namePad: 6, aspect: 92 / 128 },
 };
 
-function CromoCardInner({ cromo, size = 'sm', onPress }: CromoCardProps) {
+function CromoCardInner({ cromo, size = 'sm', onPress, width }: CromoCardProps) {
   const t = TYPO[size];
+  const height = Math.round(width / t.aspect);
   const isLegend = cromo.rarity_id === 'legendario';
   const isMissing = cromo.status === 'missing';
   const isRepeated = cromo.status === 'repeated';
@@ -82,22 +85,22 @@ function CromoCardInner({ cromo, size = 'sm', onPress }: CromoCardProps) {
         accessibilityLabel={a11yLabel}
         style={({ pressed }) => [
           styles.cardRoot,
-          { aspectRatio: t.aspect, backgroundColor: 'transparent' },
+          { width, height, backgroundColor: 'transparent' },
           pressed && { opacity: 0.6 },
         ]}
       >
         {/* SVG dashed border (RN dashed CSS is broken on Android) */}
         <Svg
-          width="100%"
-          height="100%"
+          width={width}
+          height={height}
           pointerEvents="none"
-          style={StyleSheet.absoluteFill}
+          style={{ position: 'absolute', top: 0, left: 0 }}
         >
           <Rect
             x={1}
             y={1}
-            width="98%"
-            height="98%"
+            width={width - 2}
+            height={height - 2}
             rx={6}
             ry={6}
             stroke="#C0BAA9"
@@ -128,7 +131,8 @@ function CromoCardInner({ cromo, size = 'sm', onPress }: CromoCardProps) {
       style={({ pressed }) => [
         styles.cardRoot,
         {
-          aspectRatio: t.aspect,
+          width,
+          height,
           backgroundColor: cardBg,
           borderWidth: 0.5,
           borderColor: isLegend ? 'rgba(242,232,201,0.2)' : C.hairline,
@@ -242,7 +246,6 @@ export default memo(CromoCardInner);
 
 const styles = StyleSheet.create({
   cardRoot: {
-    width: '100%',         // fill parent column (parent is flex:1)
     borderRadius: 8,
     position: 'relative',
   },

@@ -91,9 +91,9 @@ export default function CromoDetailSheet({ cromo }: CromoDetailSheetProps) {
       showsVerticalScrollIndicator={false}
       bounces={false}
     >
-      {/* Hero cromo card */}
+      {/* Hero cromo card — fixed-width 140px is the visual target */}
       <View style={styles.cardWrapper}>
-        <CromoCard cromo={cromo} size="md" />
+        <CromoCard cromo={cromo} size="md" width={140} />
       </View>
 
       {/* Rarity chip */}
