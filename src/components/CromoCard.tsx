@@ -77,9 +77,9 @@ function CromoCardInner({ cromo, size = 'sm', onPress, width }: CromoCardProps) 
   }`;
 
   // ────── MISSING ──────
-  // Use a solid 1.5px border — RN's borderStyle:dashed is broken on Android
-  // and the SVG <Rect> approach bled past the card boundary on some configs.
-  // Solid border is rock-solid and visually similar enough to the design.
+  // Solid 1.5px border in #B8B3A6 (C.faint) with a faint warm fill —
+  // visually reads as a physical empty album slot, exactly the same size
+  // as a HAVE card.
   if (isMissing) {
     return (
       <Pressable
@@ -91,14 +91,14 @@ function CromoCardInner({ cromo, size = 'sm', onPress, width }: CromoCardProps) 
           {
             width,
             height,
-            backgroundColor: 'transparent',
-            borderWidth: 1.25,
-            borderColor: '#C9C3B3',
+            backgroundColor: '#F0EBDC',
+            borderWidth: 1.5,
+            borderColor: '#B8B3A6',
             overflow: 'hidden',
             alignItems: 'center',
             justifyContent: 'center',
           },
-          pressed && { opacity: 0.6 },
+          pressed && { opacity: 0.6, transform: [{ scale: 0.97 }] },
         ]}
       >
         <Text style={[styles.missingNum, { fontSize: t.numFont + 1 }]}>{numStr}</Text>
