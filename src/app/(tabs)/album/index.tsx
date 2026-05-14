@@ -296,11 +296,14 @@ export default function AlbumScreen() {
   const size: 'sm' | 'md' = isDefaultView ? 'sm' : 'md';
 
   // ── Compute card width from screen so all 4 (or 3) cards fit exactly ─
+  // Subtract 1 from the per-card floor for safety: when flexShrink:0 is in
+  // play, a sub-pixel overflow would push the last card out of the row.
   const { width: screenWidth } = useWindowDimensions();
   const cardWidth = useMemo(() => {
     const horizPad = 20;
     const gap = size === 'sm' ? 10 : 12;
-    return Math.floor((screenWidth - horizPad * 2 - gap * (cols - 1)) / cols);
+    const raw = (screenWidth - horizPad * 2 - gap * (cols - 1)) / cols;
+    return Math.floor(raw) - 1;
   }, [screenWidth, cols, size]);
 
   const countryRow = useMemo(

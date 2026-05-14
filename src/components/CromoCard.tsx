@@ -238,6 +238,11 @@ const styles = StyleSheet.create({
   cardRoot: {
     borderRadius: 8,
     position: 'relative',
+    // Critical: without flexShrink:0, Yoga shrinks the card to fit when
+    // the row's total width (4 × cardWidth + 3 × gap) lands above the
+    // available space by even 1 px, collapsing all cards proportionally.
+    flexShrink: 0,
+    flexGrow: 0,
   },
   center: {
     flex: 1,
