@@ -5,9 +5,14 @@ import React, { useEffect } from 'react';
 import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { useFonts } from 'expo-font';
-import { QueryClientProvider } from '@tanstack/react-query';
+import { PersistQueryClientProvider } from '@tanstack/react-query-persist-client';
 import { fontMap } from '@/theme';
-import { queryClient } from '@/lib/query-client';
+import {
+  queryClient,
+  asyncStoragePersister,
+  PERSIST_BUSTER,
+  PERSIST_MAX_AGE,
+} from '@/lib/query-client';
 import { SessionProvider, useSession } from '@/lib/session-context';
 
 // Keep splash visible until fonts + session are ready
@@ -28,11 +33,24 @@ function SplashGate() {
 
 export default function RootLayout() {
   return (
-    <QueryClientProvider client={queryClient}>
+    <PersistQueryClientProvider
+      client={queryClient}
+      persistOptions={{
+        persister: asyncStoragePersister,
+        maxAge: PERSIST_MAX_AGE,
+        buster: PERSIST_BUSTER,
+        // Don't persist mutations (offline-mutation queue is a separate
+        // feature). Catalog + inventory queries are what matters for
+        // local-first first paint.
+        dehydrateOptions: {
+          shouldDehydrateMutation: () => false,
+        },
+      }}
+    >
       <SessionProvider>
         <SplashGate />
         <Stack screenOptions={{ headerShown: false }} />
       </SessionProvider>
-    </QueryClientProvider>
+    </PersistQueryClientProvider>
   );
 }

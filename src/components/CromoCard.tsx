@@ -15,13 +15,13 @@
  *   - 'md' (3-col grid / hero): aspect 92/128
  *
  * States:
- *   - missing: subtle solid fill (`MISSING_FILL`) + 1.5px solid faint border
- *     + centered 3-digit number. The fill is critical for Android: a fully
- *     transparent `View` with only a border can be collapsed by Android's
- *     renderer and the border won't paint. A near-page-color fill gives the
- *     View substance to draw around. Web renders the same code identically.
- *     (The design's L47-48 dashed border is unreachable cross-platform —
- *     RN issue #22033, dashed + borderRadius renders nothing on Android.)
+ *   - missing: outer Pressable owns size + touch + press transform; INNER
+ *     `<View>` owns the visible card surface (border + bg + radius +
+ *     overflow:hidden). This wrapper pattern is the community-recommended
+ *     workaround for Android RN New Architecture (SDK 55+) border bugs —
+ *     borders + borderRadius on a Pressable are unreliable (RN issues
+ *     #17432, #47905, #49606, #52415). Integer `borderWidth` (≥2) renders
+ *     more reliably than sub-pixel (1.5).
  *   - have: top 2-color stripe, header (num+flag), portrait area with
  *     diagonal stripes + big jersey number, bottom name strip.
  *   - repeated: like have + dark ×N pill top-right.
@@ -119,25 +119,27 @@ function CromoCardInner({ cromo, size = 'sm', onPress, width }: CromoCardProps) 
   // 3-digit number. Same outer dimensions as a HAVE card so the grid stays
   // perfectly symmetric whether the user has 0 cromos or 240.
   if (isMissing) {
+    // Outer Pressable owns sizing (`sizingStyle`: width:100% + aspectRatio)
+    // and touch. Inner View overlays the Pressable via `absoluteFill` and
+    // paints the visible card surface (border + radius + bg).
+    // Why absoluteFill and not flex:1: a flex:1 child with aspectRatio on
+    // the parent confuses Yoga — the parent ends up collapsing to the
+    // child's intrinsic height (effectively a horizontal pill). absoluteFill
+    // takes the inner view OUT of the layout flow, so the Pressable's
+    // aspectRatio-derived height is preserved.
     return (
       <Pressable
         onPress={handlePress}
         accessibilityRole="button"
         accessibilityLabel={a11yLabel}
         style={({ pressed }) => [
-          styles.cardRoot,
           sizingStyle,
-          {
-            backgroundColor: MISSING_FILL,
-            borderWidth: 1.5,
-            borderColor: C.faint,
-            alignItems: 'center',
-            justifyContent: 'center',
-          },
           pressed && { opacity: 0.55, transform: [{ scale: 0.97 }] },
         ]}
       >
-        <Text style={[styles.missingNum, { fontSize: t.numFont + 2 }]}>{numStr}</Text>
+        <View style={[StyleSheet.absoluteFill, styles.missingSurface]}>
+          <Text style={[styles.missingNum, { fontSize: t.numFont + 2 }]}>{numStr}</Text>
+        </View>
       </Pressable>
     );
   }
@@ -274,6 +276,15 @@ const styles = StyleSheet.create({
   cardRoot: {
     borderRadius: 8,
     position: 'relative',
+  },
+  missingSurface: {
+    backgroundColor: MISSING_FILL,
+    borderWidth: 2, // integer ≥ 2 for reliable Android render
+    borderColor: C.faint,
+    borderRadius: 8,
+    overflow: 'hidden',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   center: {
     flex: 1,
