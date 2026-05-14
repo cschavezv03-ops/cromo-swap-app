@@ -301,33 +301,10 @@ export default function AlbumScreen() {
           />
         }
       >
-        {/* ── Hero header ─────────────────────────────────── */}
+        {/* ── Hero header — matches v2 design exactly ────── */}
         <View style={styles.hero}>
-          {/* Mono subtitle */}
-          <Text style={styles.heroSubtitle}>MUNDIAL 2026 · MI ÁLBUM</Text>
-
-          {/* Big title */}
+          <Text style={styles.heroSubtitle}>MUNDIAL 2026</Text>
           <Text style={styles.heroTitle}>El álbum</Text>
-
-          {/* Compact stats row */}
-          <View style={styles.heroStats}>
-            <Text style={styles.heroStatsText}>
-              {stats.pct}%{' '}
-              <Text style={styles.heroStatsMuted}>
-                · {stats.owned}/{allCromos.length || 240} cromos · {stats.repeated} repetidos
-              </Text>
-            </Text>
-          </View>
-
-          {/* Thin full-width progress bar */}
-          <View style={styles.heroBarTrack}>
-            <View
-              style={[
-                styles.heroBarFill,
-                { width: `${Math.min(stats.pct, 100)}%` },
-              ]}
-            />
-          </View>
         </View>
 
         {/* Guest banner */}
@@ -449,51 +426,26 @@ const styles = StyleSheet.create({
     paddingBottom: spacing[12],
   },
 
-  // Hero header — matches "El álbum" TopBar in design ref
+  // Hero header — matches "El álbum" TopBar in design v2 ref EXACTLY
   hero: {
     paddingHorizontal: spacing[5],
-    paddingTop: spacing[4],
-    paddingBottom: spacing[3],
+    paddingTop: spacing[3],
+    paddingBottom: spacing[5],
   },
   heroSubtitle: {
     fontFamily: FONTS.mono,
-    fontSize: 10,
+    fontSize: 11,
     color: C.muted,
-    letterSpacing: 1.4,
+    letterSpacing: 1.6,
     textTransform: 'uppercase',
     marginBottom: spacing[1],
   },
   heroTitle: {
     fontFamily: FONTS.manropeExtraBold,
-    fontSize: 40,
+    fontSize: 36,
     color: C.ink,
-    letterSpacing: -1.5,
-    lineHeight: 42,
-    marginBottom: spacing[2],
-  },
-  heroStats: {
-    marginBottom: spacing[2],
-  },
-  heroStatsText: {
-    fontFamily: FONTS.mono,
-    fontSize: 11,
-    color: C.ink,
-  },
-  heroStatsMuted: {
-    fontFamily: FONTS.mono,
-    fontSize: 11,
-    color: C.muted,
-  },
-  heroBarTrack: {
-    height: 6,
-    backgroundColor: C.paper2,
-    borderRadius: 99,
-    overflow: 'hidden',
-  },
-  heroBarFill: {
-    height: '100%',
-    backgroundColor: C.ink,
-    borderRadius: 99,
+    letterSpacing: -1.2,
+    lineHeight: 40,
   },
 
   // Guest banner

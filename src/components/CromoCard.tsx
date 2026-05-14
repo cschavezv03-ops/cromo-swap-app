@@ -136,6 +136,10 @@ function CromoCardInner({ cromo, size = 'sm', onPress }: CromoCardProps) {
         {
           width: dims.width,
           height: dims.height,
+          // Critical: prevent the row container from squishing the card —
+          // without this 15 cards collapse into a single row at ~24px wide.
+          flexShrink: 0,
+          flexGrow: 0,
           backgroundColor: cardBg,
           borderRadius: radii.md,
           overflow: 'hidden',
