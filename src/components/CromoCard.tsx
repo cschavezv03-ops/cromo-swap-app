@@ -178,23 +178,25 @@ function CromoCardInner({ cromo, size = 'sm', onPress, width, height }: CromoCar
       {isMissing && (
         <>
           {/* SVG-drawn dashed border — RN's `borderStyle: dashed` is broken on
-              Android, so we always draw the dashes ourselves. */}
+              Android. Explicit absolute positioning (no absoluteFill) avoids the
+              double-size confusion that was making the dashes look overlapped. */}
           <Svg
             width={dims.width}
             height={dims.height}
-            style={StyleSheet.absoluteFill}
+            pointerEvents="none"
+            style={{ position: 'absolute', top: 0, left: 0 }}
           >
             <Rect
-              x={1.25}
-              y={1.25}
-              width={dims.width - 2.5}
-              height={dims.height - 2.5}
-              rx={radii.md}
-              ry={radii.md}
+              x={1}
+              y={1}
+              width={dims.width - 2}
+              height={dims.height - 2}
+              rx={8}
+              ry={8}
               stroke="#C0BAA9"
-              strokeWidth={1.5}
+              strokeWidth={1.25}
               fill="none"
-              strokeDasharray="5 3"
+              strokeDasharray="4 4"
             />
           </Svg>
           <Text style={[styles.missingNumber, { fontSize: Math.max(dims.num, 11) }]}>
