@@ -36,6 +36,7 @@ import {
   RefreshControl,
   StyleSheet,
 } from 'react-native';
+import Svg, { Path } from 'react-native-svg';
 import { Screen, RegisterPrompt } from '@/components';
 import SectionHeader from '@/components/SectionHeader';
 import CromoCard from '@/components/CromoCard';
@@ -301,10 +302,33 @@ export default function AlbumScreen() {
           />
         }
       >
-        {/* ── Hero header — matches v2 design exactly ────── */}
-        <View style={styles.hero}>
-          <Text style={styles.heroSubtitle}>MUNDIAL 2026</Text>
-          <Text style={styles.heroTitle}>El álbum</Text>
+        {/* ── TopBar — matches design v2 (components.jsx → TopBar) ───
+            Flex row: text column (subtitle + title) + IconBtn search on the right.
+            subtitle: mono 10 / letterSpacing 1 / uppercase / muted.
+            title: Manrope ExtraBold 26 / letterSpacing -0.6 / lineHeight 1.1. */}
+        <View style={styles.topBar}>
+          <View style={styles.topBarText}>
+            <Text style={styles.heroSubtitle}>MUNDIAL 2026</Text>
+            <Text style={styles.heroTitle}>El álbum</Text>
+          </View>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Buscar cromos"
+            hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}
+            style={({ pressed }) => [
+              styles.iconBtn,
+              pressed && styles.iconBtnPressed,
+            ]}
+          >
+            <Svg width={16} height={16} viewBox="0 0 24 24" fill="none">
+              <Path
+                d="M21 21l-4.3-4.3M16 10a6 6 0 11-12 0 6 6 0 0112 0z"
+                stroke={C.ink}
+                strokeWidth={2}
+                strokeLinecap="round"
+              />
+            </Svg>
+          </Pressable>
         </View>
 
         {/* Guest banner */}
@@ -426,26 +450,46 @@ const styles = StyleSheet.create({
     paddingBottom: spacing[12],
   },
 
-  // Hero header — matches "El álbum" TopBar in design v2 ref EXACTLY
-  hero: {
-    paddingHorizontal: spacing[5],
-    paddingTop: spacing[3],
-    paddingBottom: spacing[5],
+  // TopBar — flex row, padding 14/20/12, gap 12 between text and right slot
+  topBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing[3], // 12 — matches design TopBar gap
+    paddingHorizontal: spacing[5], // 20
+    paddingTop: 14,
+    paddingBottom: spacing[3], // 12
+  },
+  topBarText: {
+    flex: 1,
+    minWidth: 0,
   },
   heroSubtitle: {
     fontFamily: FONTS.mono,
-    fontSize: 11,
+    fontSize: 10,
     color: C.muted,
-    letterSpacing: 1.6,
+    letterSpacing: 1,
     textTransform: 'uppercase',
-    marginBottom: spacing[1],
   },
   heroTitle: {
     fontFamily: FONTS.manropeExtraBold,
-    fontSize: 36,
+    fontSize: 26,
     color: C.ink,
-    letterSpacing: -1.2,
-    lineHeight: 40,
+    letterSpacing: -0.6,
+    lineHeight: 29, // 26 * 1.1 per design
+  },
+
+  // IconBtn — circular paper2 button, 40×40, matches components.jsx IconBtn tone="paper"
+  iconBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: radii.full,
+    backgroundColor: C.paper2,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
+  },
+  iconBtnPressed: {
+    opacity: 0.75,
   },
 
   // Guest banner
@@ -468,14 +512,20 @@ const styles = StyleSheet.create({
   pill: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing[1] + 2, // 6px — between label and count
-    paddingHorizontal: 14,
-    paddingVertical: spacing[2],
+    gap: 7,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
     borderRadius: radii.full,
-    minHeight: 36,
+    minHeight: 40,
+    // Subtle shadow so the white pills pop against the warm paper bg
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04,
+    shadowRadius: 2,
+    elevation: 1,
   },
   pillIdle: {
-    backgroundColor: C.card,
+    backgroundColor: '#FFFFFF',
     borderWidth: 1,
     borderColor: C.hairline,
   },
@@ -484,7 +534,7 @@ const styles = StyleSheet.create({
     borderWidth: 0,
   },
   pillPressed: {
-    opacity: 0.75,
+    opacity: 0.78,
   },
   pillLabel: {
     fontFamily: FONTS.manropeBold,
@@ -493,18 +543,17 @@ const styles = StyleSheet.create({
     color: C.ink,
   },
   pillLabelSelected: {
-    color: C.card,
+    color: '#FFFFFF',
   },
   pillCount: {
     fontFamily: FONTS.mono,
     fontSize: 11,
-    fontWeight: '600',
+    fontWeight: '700',
     color: C.muted,
-    opacity: 0.55,
   },
   pillCountSelected: {
-    color: C.card,
-    opacity: 0.65,
+    color: '#FFFFFF',
+    opacity: 0.7,
   },
 
   // Country chips
@@ -520,14 +569,19 @@ const styles = StyleSheet.create({
   countryChip: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing[1] + 2,
-    paddingHorizontal: 10,
-    paddingVertical: spacing[1] + 2,
+    gap: 7,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
     borderRadius: radii.full,
-    minHeight: 32,
+    minHeight: 36,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04,
+    shadowRadius: 2,
+    elevation: 1,
   },
   countryChipIdle: {
-    backgroundColor: C.card,
+    backgroundColor: '#FFFFFF',
     borderWidth: 1,
     borderColor: C.hairline,
   },
@@ -536,18 +590,19 @@ const styles = StyleSheet.create({
     borderWidth: 0,
   },
   countryChipFlag: {
-    fontSize: 14,
+    fontSize: 16,
     fontFamily: 'System',
   },
   countryChipCode: {
     fontFamily: FONTS.mono,
     fontSize: 11,
     fontWeight: '700',
-    letterSpacing: 0.3,
+    letterSpacing: 0.6,
     color: C.ink,
+    textTransform: 'uppercase',
   },
   countryChipCodeSelected: {
-    color: C.card,
+    color: '#FFFFFF',
   },
 
   // Section blocks
@@ -565,15 +620,16 @@ const styles = StyleSheet.create({
   },
   grid4col: {
     // 4 × 72px cards + 3 × 10px gaps = 318px → fits 360px wide phone ✓
-    gap: 10,
+    columnGap: 10,
+    rowGap: 12,
     paddingTop: spacing[2],
-    paddingBottom: spacing[1],
+    paddingBottom: spacing[2],
   },
   grid3col: {
-    // 3 × 92px cards + 2 × 12px gaps = 300px → fits ✓
-    gap: 12,
+    columnGap: 12,
+    rowGap: 14,
     paddingTop: spacing[2],
-    paddingBottom: spacing[1],
+    paddingBottom: spacing[2],
   },
   flatGridPadding: {
     paddingTop: spacing[2],
