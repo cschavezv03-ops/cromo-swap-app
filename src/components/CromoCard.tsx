@@ -20,7 +20,7 @@
  */
 import React, { memo } from 'react';
 import { Pressable, View, Text, StyleSheet } from 'react-native';
-import Svg, { Rect, Line } from 'react-native-svg';
+import Svg, { Line } from 'react-native-svg';
 import { C } from '@/theme';
 import type { AlbumCromo } from '@/lib/album-types';
 
@@ -77,6 +77,9 @@ function CromoCardInner({ cromo, size = 'sm', onPress, width }: CromoCardProps) 
   }`;
 
   // ────── MISSING ──────
+  // Use a solid 1.5px border — RN's borderStyle:dashed is broken on Android
+  // and the SVG <Rect> approach bled past the card boundary on some configs.
+  // Solid border is rock-solid and visually similar enough to the design.
   if (isMissing) {
     return (
       <Pressable
@@ -85,33 +88,20 @@ function CromoCardInner({ cromo, size = 'sm', onPress, width }: CromoCardProps) 
         accessibilityLabel={a11yLabel}
         style={({ pressed }) => [
           styles.cardRoot,
-          { width, height, backgroundColor: 'transparent' },
+          {
+            width,
+            height,
+            backgroundColor: 'transparent',
+            borderWidth: 1.25,
+            borderColor: '#C9C3B3',
+            overflow: 'hidden',
+            alignItems: 'center',
+            justifyContent: 'center',
+          },
           pressed && { opacity: 0.6 },
         ]}
       >
-        {/* SVG dashed border (RN dashed CSS is broken on Android) */}
-        <Svg
-          width={width}
-          height={height}
-          pointerEvents="none"
-          style={{ position: 'absolute', top: 0, left: 0 }}
-        >
-          <Rect
-            x={1}
-            y={1}
-            width={width - 2}
-            height={height - 2}
-            rx={6}
-            ry={6}
-            stroke="#C0BAA9"
-            strokeWidth={1.25}
-            fill="none"
-            strokeDasharray="4 4"
-          />
-        </Svg>
-        <View style={styles.center}>
-          <Text style={[styles.missingNum, { fontSize: t.numFont + 1 }]}>{numStr}</Text>
-        </View>
+        <Text style={[styles.missingNum, { fontSize: t.numFont + 1 }]}>{numStr}</Text>
       </Pressable>
     );
   }
