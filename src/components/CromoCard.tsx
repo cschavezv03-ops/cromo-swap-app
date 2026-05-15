@@ -34,7 +34,6 @@ import { C } from '@/theme';
 import type { AlbumCromo } from '@/lib/album-types';
 
 const FONT_MANROPE = 'Manrope_700Bold';
-const FONT_MANROPE_X = 'Manrope_800ExtraBold';
 const FONT_MONO = 'JetBrainsMono_400Regular';
 
 const LEGEND_BG = '#1F1B14';
@@ -119,28 +118,25 @@ function CromoCardInner({ cromo, size = 'sm', onPress, width }: CromoCardProps) 
   // 3-digit number. Same outer dimensions as a HAVE card so the grid stays
   // perfectly symmetric whether the user has 0 cromos or 240.
   if (isMissing) {
-    // Outer Pressable owns sizing (`sizingStyle`: width:100% + aspectRatio)
-    // and touch. Inner View overlays the Pressable via `absoluteFill` and
-    // paints the visible card surface (border + radius + bg).
-    // Why absoluteFill and not flex:1: a flex:1 child with aspectRatio on
-    // the parent confuses Yoga — the parent ends up collapsing to the
-    // child's intrinsic height (effectively a horizontal pill). absoluteFill
-    // takes the inner view OUT of the layout flow, so the Pressable's
-    // aspectRatio-derived height is preserved.
+    // Android empty-slot bug: fully decouple layout, painting and touch.
+    // 1) outer View owns size
+    // 2) inner View paints the visible card
+    // 3) transparent Pressable overlays for interaction only
     return (
-      <Pressable
-        onPress={handlePress}
-        accessibilityRole="button"
-        accessibilityLabel={a11yLabel}
-        style={({ pressed }) => [
-          sizingStyle,
-          pressed && { opacity: 0.55, transform: [{ scale: 0.97 }] },
-        ]}
-      >
-        <View style={[StyleSheet.absoluteFill, styles.missingSurface]}>
+      <View style={[sizingStyle, styles.missingBox]}>
+        <View pointerEvents="none" style={styles.missingSurface}>
           <Text style={[styles.missingNum, { fontSize: t.numFont + 2 }]}>{numStr}</Text>
         </View>
-      </Pressable>
+        <Pressable
+          onPress={handlePress}
+          accessibilityRole="button"
+          accessibilityLabel={a11yLabel}
+          style={({ pressed }) => [
+            StyleSheet.absoluteFillObject,
+            pressed && { opacity: 0.55, transform: [{ scale: 0.97 }] },
+          ]}
+        />
+      </View>
     );
   }
 
@@ -277,7 +273,11 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     position: 'relative',
   },
+  missingBox: {
+    position: 'relative',
+  },
   missingSurface: {
+    flex: 1,
     backgroundColor: MISSING_FILL,
     borderWidth: 2, // integer ≥ 2 for reliable Android render
     borderColor: C.faint,
