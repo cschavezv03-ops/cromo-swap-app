@@ -1,33 +1,52 @@
-import { createContext, useContext, useEffect, useMemo, useState } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { Appearance, View } from 'react-native';
+
+import { kv, KvKey } from '@/features/storage/kv';
 
 import { palette, type Palette, type ThemeMode } from './tokens';
 
+type ThemeOverride = ThemeMode | null;
+
 type ThemeContextValue = {
   mode: ThemeMode;
-  override: ThemeMode | null;
-  setOverride: (next: ThemeMode | null) => void;
+  override: ThemeOverride;
+  setOverride: (next: ThemeOverride) => void;
   colors: Palette;
 };
 
 const ThemeContext = createContext<ThemeContextValue | null>(null);
 
+function readOverrideFromKv(): ThemeOverride {
+  const raw = kv.getString(KvKey.themeOverride);
+  if (raw === 'light' || raw === 'dark') return raw;
+  return null;
+}
+
+function persistOverride(next: ThemeOverride): void {
+  if (next === null) kv.remove(KvKey.themeOverride);
+  else kv.set(KvKey.themeOverride, next);
+}
+
 type Props = {
   children: React.ReactNode;
-  initialOverride?: ThemeMode | null;
 };
 
-export function ThemeProvider({ children, initialOverride = null }: Props) {
+export function ThemeProvider({ children }: Props) {
   const [systemMode, setSystemMode] = useState<ThemeMode>(
     Appearance.getColorScheme() === 'dark' ? 'dark' : 'light',
   );
-  const [override, setOverride] = useState<ThemeMode | null>(initialOverride);
+  const [override, setOverrideState] = useState<ThemeOverride>(readOverrideFromKv());
 
   useEffect(() => {
     const sub = Appearance.addChangeListener(({ colorScheme }) => {
       setSystemMode(colorScheme === 'dark' ? 'dark' : 'light');
     });
     return () => sub.remove();
+  }, []);
+
+  const setOverride = useCallback((next: ThemeOverride) => {
+    setOverrideState(next);
+    persistOverride(next);
   }, []);
 
   const mode: ThemeMode = override ?? systemMode;
@@ -39,7 +58,7 @@ export function ThemeProvider({ children, initialOverride = null }: Props) {
       setOverride,
       colors: palette[mode],
     }),
-    [mode, override],
+    [mode, override, setOverride],
   );
 
   return (

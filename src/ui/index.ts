@@ -11,4 +11,5 @@ export { Screen } from './Screen';
 export { ScreenHeader } from './ScreenHeader';
 export { Sheet } from './Sheet';
 export { Skeleton } from './Skeleton';
+export { ThemePicker } from './ThemePicker';
 export { ToastProvider, useToast } from './Toast';

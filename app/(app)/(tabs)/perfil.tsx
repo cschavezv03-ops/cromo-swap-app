@@ -6,7 +6,7 @@ import { useSignOut } from '@/features/auth/hooks/useAuthMutations';
 import { useProfile } from '@/features/auth/hooks/useProfile';
 import { useSession } from '@/features/auth/hooks/useSession';
 import { universitiesById } from '@/features/auth/lib/universities';
-import { Button, Card, Chip, ProgressRing, Screen, ScreenHeader, useToast } from '@/ui';
+import { Button, Card, Chip, ProgressRing, Screen, ScreenHeader, ThemePicker, useToast } from '@/ui';
 
 export default function PerfilTab() {
   const router = useRouter();
@@ -107,6 +107,10 @@ export default function PerfilTab() {
               </Text>
             )}
           </View>
+        </Card>
+
+        <Card variant="elevated">
+          <ThemePicker />
         </Card>
 
         <Button

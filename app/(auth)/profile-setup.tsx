@@ -6,7 +6,7 @@ import { ScopePicker } from '@/features/auth/components/ScopePicker';
 import { useUpdateProfile } from '@/features/auth/hooks/useAuthMutations';
 import { useSession } from '@/features/auth/hooks/useSession';
 import { detectUniversityFromEmail } from '@/features/auth/lib/universities';
-import { Button, Input, Screen, useToast } from '@/ui';
+import { Button, Input, Screen, ThemePicker, useToast } from '@/ui';
 
 export default function ProfileSetupScreen() {
   const router = useRouter();
@@ -118,6 +118,10 @@ export default function ProfileSetupScreen() {
               value={scopeIds}
               onChange={setScopeIds}
             />
+          </View>
+
+          <View className="mt-9">
+            <ThemePicker />
           </View>
 
           <View className="mt-10">
