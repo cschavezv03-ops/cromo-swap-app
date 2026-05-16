@@ -6,15 +6,11 @@ import { useSession } from '@/features/auth/hooks/useSession';
 
 export default function AppLayout() {
   const { session, isLoading: sessionLoading } = useSession();
-  const { data: profile, isLoading: profileLoading, isFetching } = useProfile();
+  const profileQuery = useProfile();
 
-  // 1) Esperar la sesión.
+  // 1) Esperar la sesión inicial.
   if (sessionLoading) {
-    return (
-      <View className="flex-1 items-center justify-center bg-bg">
-        <ActivityIndicator />
-      </View>
-    );
+    return <Loading />;
   }
 
   // 2) Sin sesión → flujo de auth.
@@ -22,21 +18,32 @@ export default function AppLayout() {
     return <Redirect href="/(auth)/email" />;
   }
 
-  // 3) Con sesión pero el perfil aún no resolvió (data===undefined o fetching
-  //    por primera vez): esperar. Sin esto, un refetch breve durante el cold
-  //    start nos mandaba a profile-setup aunque ya estuviera completo.
-  if (profileLoading || (profile === undefined && isFetching)) {
-    return (
-      <View className="flex-1 items-center justify-center bg-bg">
-        <ActivityIndicator />
-      </View>
-    );
+  // 3) Con sesión, esperar a que el perfil se resuelva.
+  //    `isPending` es true mientras data === undefined (ya sea porque la
+  //    query está deshabilitada, fetching, o nunca terminó). Solo cuando
+  //    es false sabemos si profile === null (no row) o un row real.
+  if (profileQuery.isPending) {
+    return <Loading />;
   }
 
-  // 4) Perfil resuelto pero incompleto (o sin fila).
-  if (!isProfileComplete(profile ?? null)) {
+  // 4) Si la query erroró, esperar/reintentar. Mostramos loading otra vez
+  //    para no redirigir en falso a profile-setup por un problema de red.
+  if (profileQuery.isError) {
+    return <Loading />;
+  }
+
+  // 5) Perfil resuelto, sin display_name o university → setup.
+  if (!isProfileComplete(profileQuery.data ?? null)) {
     return <Redirect href="/(auth)/profile-setup" />;
   }
 
   return <Stack screenOptions={{ headerShown: false }} />;
+}
+
+function Loading() {
+  return (
+    <View className="flex-1 items-center justify-center bg-bg">
+      <ActivityIndicator />
+    </View>
+  );
 }

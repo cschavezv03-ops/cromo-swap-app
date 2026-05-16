@@ -2,7 +2,9 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 
 import { supabase } from '@/lib/supabase';
 import { kv, KvKey } from '@/features/storage/kv';
-import { resetDatabase } from '@/features/storage/db';
+import { resetUserData } from '@/features/storage/db';
+import { pullRemoteInventory } from '@/features/album/data/inventory';
+import { albumQueryKey } from '@/features/album/hooks/useAlbumData';
 
 export function useRequestOtp() {
   return useMutation({
@@ -46,6 +48,7 @@ export function useSetPassword() {
 }
 
 export function useSignInWithPassword() {
+  const qc = useQueryClient();
   return useMutation({
     mutationFn: async ({ email, password }: { email: string; password: string }) => {
       const { data, error } = await supabase.auth.signInWithPassword({
@@ -53,7 +56,19 @@ export function useSignInWithPassword() {
         password,
       });
       if (error) throw error;
+      // Tras login exitoso, descargar el inventario del usuario al storage
+      // local. Si falla la red, lo intentará de nuevo cuando AlbumScreen
+      // monte (best-effort).
+      try {
+        await pullRemoteInventory();
+      } catch {
+        /* best-effort; AlbumScreen reintenta on mount */
+      }
       return data;
+    },
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: albumQueryKey });
+      void qc.invalidateQueries({ queryKey: ['profile'] });
     },
   });
 }
@@ -64,11 +79,15 @@ export function useSignOut() {
     mutationFn: async () => {
       const { error } = await supabase.auth.signOut();
       if (error) throw error;
-      // Hard reset local-only state on logout so a different user opening
-      // the app doesn't see the previous user's cached data.
+      // Reset SOLO los datos del usuario, no el catálogo (read-only y
+      // compartido). Si borraramos el catálogo, al re-loguear el álbum
+      // quedaría vacío hasta el siguiente cold start.
       qc.clear();
       kv.set(KvKey.session.lastUserId, '');
-      await resetDatabase();
+      kv.remove(KvKey.lastSyncedAt);
+      kv.remove(KvKey.album.lastFilter);
+      kv.remove(KvKey.album.selectedCountries);
+      await resetUserData();
     },
   });
 }
@@ -99,10 +118,20 @@ export function useUpdateProfile() {
         .select('*')
         .single();
       if (error) throw error;
+
+      // Si es la primera vez que el usuario completa su perfil (signup),
+      // descargar su inventario remoto al local. Si ya estaba, este pull
+      // se hace en cada arranque y es idempotente.
+      try {
+        await pullRemoteInventory();
+      } catch {
+        /* best-effort */
+      }
       return data;
     },
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ['profile'] });
+      void qc.invalidateQueries({ queryKey: albumQueryKey });
     },
   });
 }

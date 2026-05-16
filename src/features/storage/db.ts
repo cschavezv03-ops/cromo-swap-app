@@ -108,6 +108,24 @@ export async function getDatabase(): Promise<SQLite.SQLiteDatabase> {
   return dbPromise;
 }
 
+/**
+ * Borra SOLO los datos pertenecientes al usuario actual (inventario + cola
+ * de sincronización). NO toca el catálogo (catalog_cromos_local, countries,
+ * rarities, universities, catalog_meta), que es read-only y compartido entre
+ * sesiones — así al reiniciar sesión el álbum no aparece vacío.
+ */
+export async function resetUserData(): Promise<void> {
+  const db = await getDatabase();
+  await db.execAsync(`
+    DELETE FROM inventory_local;
+    DELETE FROM sync_queue;
+  `);
+}
+
+/**
+ * Borra TODO incluyendo el catálogo. Usado solo en diagnóstico/dev: forzará
+ * un nuevo seed desde el JSON bundle en el próximo arranque.
+ */
 export async function resetDatabase(): Promise<void> {
   const db = await getDatabase();
   await db.execAsync(`
