@@ -1,22 +1,37 @@
 import { useRouter } from 'expo-router';
-import { ScrollView, Text, View } from 'react-native';
+import { useRef } from 'react';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { UniversityBadge } from '@/features/auth/components/UniversityBadge';
 import { useSignOut } from '@/features/auth/hooks/useAuthMutations';
 import { useProfile } from '@/features/auth/hooks/useProfile';
 import { useSession } from '@/features/auth/hooks/useSession';
 import { universitiesById } from '@/features/auth/lib/universities';
+import { useMyBlocks } from '@/features/profile/hooks/useBlocks';
+import { useMyWhatsApp } from '@/features/profile/hooks/useWhatsApp';
+import {
+  WhatsAppPrompt,
+  type WhatsAppPromptHandle,
+} from '@/features/profile/components/WhatsAppPrompt';
+import { useUnreadNotificationsCount } from '@/features/notifications/hooks/useNotifications';
+import { useTheme } from '@/theme/ThemeProvider';
 import { Button, Card, Chip, ProgressRing, Screen, ScreenHeader, ThemePicker, useToast } from '@/ui';
 
 export default function PerfilTab() {
   const router = useRouter();
   const toast = useToast();
+  const { colors } = useTheme();
   const { user } = useSession();
   const { data: profile } = useProfile();
+  const blocks = useMyBlocks();
+  const whatsapp = useMyWhatsApp();
+  const unreadCount = useUnreadNotificationsCount();
   const signOut = useSignOut();
 
   const uni = profile?.university ? universitiesById[profile.university] : null;
   const albumPct = (profile?.album_pct ?? 0) / 100;
+  const blocksCount = blocks.data?.length ?? 0;
+  const whatsappPrompt = useRef<WhatsAppPromptHandle>(null);
 
   const handleSignOut = async () => {
     try {
@@ -110,6 +125,35 @@ export default function PerfilTab() {
         </Card>
 
         <Card variant="elevated">
+          <Text className="text-text-tertiary text-xs font-sans-semibold uppercase tracking-wider">
+            Cuenta
+          </Text>
+          <View className="mt-2">
+            <SettingsRow
+              label="WhatsApp"
+              hint={whatsapp.data?.whatsapp_phone ?? 'No configurado'}
+              hintTone={whatsapp.data?.whatsapp_phone ? 'normal' : 'warning'}
+              onPress={() => whatsappPrompt.current?.present()}
+              borderColor={colors.border}
+            />
+            <SettingsRow
+              label="Bloqueados"
+              hint={blocksCount === 0 ? 'Ninguno' : `${blocksCount} usuario${blocksCount === 1 ? '' : 's'}`}
+              onPress={() => router.push('/(app)/profile/blocked')}
+              borderColor={colors.border}
+            />
+            <SettingsRow
+              label="Avisos sin leer"
+              hint={unreadCount === 0 ? '0' : `${unreadCount}`}
+              hintTone={unreadCount > 0 ? 'accent' : 'normal'}
+              onPress={() => router.push('/(app)/(tabs)/avisos')}
+              borderColor={colors.border}
+              isLast
+            />
+          </View>
+        </Card>
+
+        <Card variant="elevated">
           <ThemePicker />
         </Card>
 
@@ -120,6 +164,47 @@ export default function PerfilTab() {
           onPress={handleSignOut}
         />
       </ScrollView>
+
+      <WhatsAppPrompt ref={whatsappPrompt} />
     </Screen>
+  );
+}
+
+function SettingsRow({
+  label,
+  hint,
+  hintTone = 'normal',
+  onPress,
+  borderColor,
+  isLast = false,
+}: {
+  label: string;
+  hint: string;
+  hintTone?: 'normal' | 'warning' | 'accent';
+  onPress: () => void;
+  borderColor: string;
+  isLast?: boolean;
+}) {
+  const hintClass =
+    hintTone === 'warning'
+      ? 'text-warning'
+      : hintTone === 'accent'
+        ? 'text-accent'
+        : 'text-text-tertiary';
+  return (
+    <Pressable
+      onPress={onPress}
+      style={{
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingVertical: 12,
+        borderBottomWidth: isLast ? 0 : StyleSheet.hairlineWidth,
+        borderBottomColor: borderColor,
+      }}
+    >
+      <Text className="flex-1 text-[15px] font-sans-medium text-text-primary">{label}</Text>
+      <Text className={`text-sm font-sans-medium ${hintClass}`}>{hint}</Text>
+      <Text className="ml-2 text-text-tertiary text-sm">›</Text>
+    </Pressable>
   );
 }
