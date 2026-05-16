@@ -3,10 +3,14 @@ import { ActivityIndicator, View } from 'react-native';
 
 import { isProfileComplete, useProfile } from '@/features/auth/hooks/useProfile';
 import { useSession } from '@/features/auth/hooks/useSession';
+import { useRealtimeBridge } from '@/features/transactions/hooks/useRealtimeBridge';
 
 export default function AppLayout() {
   const { session, isLoading: sessionLoading } = useSession();
   const profileQuery = useProfile();
+  // Suscribe queries de matches/transactions/notifications a cambios en
+  // tiempo real apenas haya sesión. Sale silencioso si no hay user.
+  useRealtimeBridge();
 
   // 1) Esperar la sesión inicial.
   if (sessionLoading) {

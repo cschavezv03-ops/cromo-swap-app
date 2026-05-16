@@ -2,6 +2,12 @@
 @tailwind components;
 @tailwind utilities;
 
+/*
+ * Fallback values en :root para web (Metro web bundler).
+ * En la app nativa el ThemeProvider inyecta los valores vía `vars()` de
+ * NativeWind v4 en un View raíz — esos sobrescriben los de aquí y se
+ * propagan a través de portals (BottomSheet, modals, etc.).
+ */
 @layer base {
   :root {
     --color-bg: 255 255 255;
@@ -17,22 +23,5 @@
     --color-success: 22 163 74;
     --color-warning: 217 119 6;
     --color-danger: 220 38 38;
-  }
-
-  .dark:root,
-  :root.dark {
-    --color-bg: 11 11 14;
-    --color-surface: 22 22 27;
-    --color-surface-elev: 30 30 37;
-    --color-border: 42 42 51;
-    --color-border-strong: 58 58 69;
-    --color-text-primary: 247 247 248;
-    --color-text-secondary: 161 161 169;
-    --color-text-tertiary: 110 110 118;
-    --color-accent: 129 140 248;
-    --color-accent-soft: 30 27 75;
-    --color-success: 34 197 94;
-    --color-warning: 245 158 11;
-    --color-danger: 239 68 68;
   }
 }
