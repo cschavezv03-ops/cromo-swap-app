@@ -25,10 +25,7 @@ export function CountrySectionHeader({ flag, name, code, owned, total, accent }:
           </View>
         </View>
         <View className="h-1.5 w-20 overflow-hidden rounded-full bg-cream-300">
-          <View
-            style={{ width: `${pct}%`, backgroundColor: accent }}
-            className="h-full rounded-full"
-          />
+          <View style={{ width: `${pct}%`, backgroundColor: accent }} className="h-full rounded-full" />
         </View>
       </View>
     </View>

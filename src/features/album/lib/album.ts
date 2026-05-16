@@ -24,13 +24,13 @@ export function mergeInventory(
   catalog: CromoCatalog[],
   inventory: InventoryItem[],
 ): AlbumItem[] {
-  const invByCromo = new Map<string, InventoryItem>();
-  for (const item of inventory) invByCromo.set(item.cromo_id, item);
+  const inv = new Map<string, InventoryItem>();
+  for (const item of inventory) inv.set(item.cromo_id, item);
 
   return catalog.map((c) => {
-    const inv = c.id ? invByCromo.get(c.id) : undefined;
-    const owned = inv?.owned_quantity ?? 0;
-    const pasted = inv?.pasted_quantity ?? 0;
+    const i = c.id ? inv.get(c.id) : undefined;
+    const owned = i?.owned_quantity ?? 0;
+    const pasted = i?.pasted_quantity ?? 0;
     return {
       ...c,
       ownedQuantity: owned,
@@ -62,7 +62,6 @@ export function applyCountryFilter(items: AlbumItem[], country: string | null): 
 }
 
 export function computeCounts(items: AlbumItem[]) {
-  let total = items.length;
   let owned = 0;
   let missing = 0;
   let repeated = 0;
@@ -71,27 +70,24 @@ export function computeCounts(items: AlbumItem[]) {
     if (it.isMissing) missing++;
     if (it.isRepeated) repeated++;
   }
-  return { total, owned, missing, repeated };
+  return { total: items.length, owned, missing, repeated };
 }
 
 export function groupByCountry(items: AlbumItem[], columns: number): AlbumSection[] {
-  const byCountry = new Map<string, AlbumItem[]>();
-  for (const item of items) {
-    if (!item.country_code) continue;
-    const arr = byCountry.get(item.country_code) ?? [];
-    arr.push(item);
-    byCountry.set(item.country_code, arr);
+  const map = new Map<string, AlbumItem[]>();
+  for (const it of items) {
+    if (!it.country_code) continue;
+    const arr = map.get(it.country_code) ?? [];
+    arr.push(it);
+    map.set(it.country_code, arr);
   }
-
-  const sections: AlbumSection[] = [];
-  for (const [code, list] of byCountry) {
+  const out: AlbumSection[] = [];
+  for (const [code, list] of map) {
     const first = list[0]!;
-    const owned = list.filter((i) => i.isOwned).length;
+    const owned = list.filter((x) => x.isOwned).length;
     const rows: AlbumItem[][] = [];
-    for (let i = 0; i < list.length; i += columns) {
-      rows.push(list.slice(i, i + columns));
-    }
-    sections.push({
+    for (let i = 0; i < list.length; i += columns) rows.push(list.slice(i, i + columns));
+    out.push({
       countryCode: code,
       countryName: first.country_name ?? code,
       flag: first.flag_emoji ?? '',
@@ -101,7 +97,7 @@ export function groupByCountry(items: AlbumItem[], columns: number): AlbumSectio
       rows,
     });
   }
-  return sections;
+  return out;
 }
 
 export function distinctCountries(items: AlbumItem[]) {

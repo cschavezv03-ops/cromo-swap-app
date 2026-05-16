@@ -1,9 +1,13 @@
 import { useCallback, useMemo, useState } from 'react';
-import { SectionList, View, useWindowDimensions } from 'react-native';
+import { Pressable, SectionList, View, useWindowDimensions } from 'react-native';
+import * as Haptics from 'expo-haptics';
 
-import { Button, Pill, Screen, Text } from '@/shared/ui';
+import { Screen, Text } from '@/shared/ui';
+import { cn } from '@/shared/lib/cn';
 import { useSession } from '@/features/session/SessionProvider';
+
 import { useCatalog, useInventory } from '@/features/album/data/queries';
+import { useIncrementCromo } from '@/features/album/data/mutations';
 import {
   applyCountryFilter,
   applyFilter,
@@ -14,10 +18,13 @@ import {
   type AlbumFilter,
   type AlbumItem,
 } from '@/features/album/lib/album';
-import { AllChip, CountryChip } from '@/features/album/components/CountryChip';
+
+import { CountriesBar } from '@/features/album/components/CountriesBar';
 import { CountrySectionHeader } from '@/features/album/components/CountrySectionHeader';
+import { CromoOptionsSheet } from '@/features/album/components/CromoOptionsSheet';
 import { CromoRow } from '@/features/album/components/CromoRow';
-import { CromoSheet } from '@/features/album/components/CromoSheet';
+import { FiltersBar } from '@/features/album/components/FiltersBar';
+import { SobreModal } from '@/features/album/components/SobreModal';
 
 const COLUMNS = 4;
 const H_PADDING = 16;
@@ -30,10 +37,12 @@ export function AlbumScreen() {
 
   const catalogQuery = useCatalog();
   const inventoryQuery = useInventory(userId);
+  const increment = useIncrementCromo();
 
   const [filter, setFilter] = useState<AlbumFilter>('all');
   const [country, setCountry] = useState<string>('ALL');
   const [active, setActive] = useState<AlbumItem | null>(null);
+  const [sobreOpen, setSobreOpen] = useState(false);
 
   const cardWidth = Math.floor((width - H_PADDING * 2 - GAP * (COLUMNS - 1)) / COLUMNS);
   const cardHeight = Math.floor(cardWidth * 1.33);
@@ -44,7 +53,6 @@ export function AlbumScreen() {
   );
 
   const counts = useMemo(() => computeCounts(items), [items]);
-
   const countries = useMemo(() => distinctCountries(items), [items]);
 
   const filtered = useMemo(() => {
@@ -68,109 +76,99 @@ export function AlbumScreen() {
     [sections],
   );
 
-  const onItemPress = useCallback((it: AlbumItem) => setActive(it), []);
+  const handleTap = useCallback(
+    (it: AlbumItem) => {
+      if (!userId || !it.id) return;
+      increment.mutate({ userId, cromoId: it.id, delta: 1 });
+    },
+    [userId, increment],
+  );
+
+  const handleLongPress = useCallback((it: AlbumItem) => setActive(it), []);
+
+  const openSobre = useCallback(() => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => undefined);
+    setSobreOpen(true);
+  }, []);
 
   return (
-    <>
-      <Screen>
-        <View className="px-4 pt-2">
-          <Text variant="overline">Mundial 2026</Text>
-          <View className="mt-1 flex-row items-end justify-between">
-            <Text variant="h1">El álbum</Text>
-            <View className="flex-row items-center gap-2">
-              <Button label="+ Sobre" size="sm" onPress={() => {}} />
-            </View>
+    <Screen>
+      <View className="px-4 pt-2">
+        <View className="flex-row items-end justify-between">
+          <View className="flex-1">
+            <Text variant="overline">Mundial 2026</Text>
+            <Text variant="h1" className="mt-1">
+              El álbum
+            </Text>
           </View>
+          <Pressable
+            onPress={openSobre}
+            className={cn(
+              'h-11 flex-row items-center gap-2 rounded-full px-4 bg-ink-900 active:bg-ink-800',
+            )}
+          >
+            <Text className="text-base font-bold text-cream">+</Text>
+            <Text className="text-sm font-semibold text-cream">Sobre</Text>
+          </Pressable>
         </View>
+      </View>
 
-        <SectionList
-          stickySectionHeadersEnabled={false}
-          sections={sectionListData}
-          keyExtractor={(row, idx) => `${row[0]?.id ?? 'row'}-${idx}`}
-          contentContainerStyle={{ paddingHorizontal: H_PADDING, paddingBottom: 96 }}
-          ListHeaderComponent={
-            <View className="pb-2 pt-4">
-              <View className="flex-row gap-2">
-                <Pill
-                  label="Todos"
-                  count={counts.total}
-                  active={filter === 'all'}
-                  onPress={() => setFilter('all')}
-                />
-                <Pill
-                  label="Faltan"
-                  count={counts.missing}
-                  active={filter === 'missing'}
-                  onPress={() => setFilter('missing')}
-                />
-                <Pill
-                  label="Repetidos"
-                  count={counts.repeated}
-                  active={filter === 'repeated'}
-                  onPress={() => setFilter('repeated')}
-                />
-                <Pill
-                  label="Tengo"
-                  count={counts.owned}
-                  active={filter === 'have'}
-                  onPress={() => setFilter('have')}
-                />
-              </View>
-              <View className="-mx-4 mt-3 flex-row gap-2 px-4">
-                <View className="flex-row gap-2">
-                  <AllChip active={country === 'ALL'} onPress={() => setCountry('ALL')} />
-                  {countries.map((c) => (
-                    <CountryChip
-                      key={c.code}
-                      flag={c.flag}
-                      code={c.code}
-                      active={country === c.code}
-                      onPress={() => setCountry(c.code)}
-                    />
-                  ))}
-                </View>
-              </View>
+      <View className="mt-4 pl-4">
+        <FiltersBar filter={filter} counts={counts} onChange={setFilter} />
+      </View>
+      <View className="mt-3 pl-4">
+        <CountriesBar countries={countries} active={country} onChange={setCountry} />
+      </View>
+
+      <SectionList
+        sections={sectionListData}
+        stickySectionHeadersEnabled={false}
+        keyExtractor={(row, idx) => `row-${row[0]?.id ?? idx}`}
+        contentContainerStyle={{ paddingHorizontal: H_PADDING, paddingBottom: 96 }}
+        renderSectionHeader={({ section }) => (
+          <CountrySectionHeader
+            code={section.countryCode}
+            name={section.countryName}
+            flag={section.flag}
+            accent={section.accent}
+            owned={section.owned}
+            total={section.total}
+          />
+        )}
+        renderItem={({ item: row }) => (
+          <CromoRow
+            items={row}
+            columns={COLUMNS}
+            cardWidth={cardWidth}
+            cardHeight={cardHeight}
+            gap={GAP}
+            onTap={handleTap}
+            onLongPress={handleLongPress}
+          />
+        )}
+        ListEmptyComponent={
+          catalogQuery.isLoading || inventoryQuery.isLoading ? (
+            <View className="items-center py-12">
+              <Text variant="bodySm">Cargando álbum…</Text>
             </View>
-          }
-          renderSectionHeader={({ section }) => (
-            <CountrySectionHeader
-              code={section.countryCode}
-              name={section.countryName}
-              flag={section.flag}
-              accent={section.accent}
-              owned={section.owned}
-              total={section.total}
-            />
-          )}
-          renderItem={({ item: row }) => (
-            <CromoRow
-              items={row}
-              columns={COLUMNS}
-              cardWidth={cardWidth}
-              cardHeight={cardHeight}
-              gap={GAP}
-              onItemPress={onItemPress}
-            />
-          )}
-          ListEmptyComponent={
-            catalogQuery.isLoading ? (
-              <View className="items-center py-12">
-                <Text variant="bodySm">Cargando álbum…</Text>
-              </View>
-            ) : (
-              <View className="items-center py-12">
-                <Text variant="bodySm">No hay cromos en esta vista.</Text>
-              </View>
-            )
-          }
-          windowSize={9}
-          initialNumToRender={6}
-          maxToRenderPerBatch={8}
-          removeClippedSubviews
-        />
+          ) : (
+            <View className="items-center py-12">
+              <Text variant="bodySm">No hay cromos en esta vista.</Text>
+            </View>
+          )
+        }
+        windowSize={11}
+        initialNumToRender={6}
+        maxToRenderPerBatch={8}
+      />
 
-        <CromoSheet item={active} userId={userId} onClose={() => setActive(null)} />
-      </Screen>
-    </>
+      <CromoOptionsSheet item={active} userId={userId} onClose={() => setActive(null)} />
+      <SobreModal
+        visible={sobreOpen}
+        items={items}
+        userId={userId}
+        onClose={() => setSobreOpen(false)}
+      />
+    </Screen>
   );
 }
