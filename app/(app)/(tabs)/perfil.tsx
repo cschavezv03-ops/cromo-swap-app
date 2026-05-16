@@ -23,7 +23,7 @@ export default function PerfilTab() {
       await signOut.mutateAsync();
       router.replace('/(auth)/email');
     } catch (err) {
-      toast.show(err instanceof Error ? err.message : 'No pudimos cerrar sesión.', 'danger');
+      toast.show(err instanceof Error ? err.message : 'No se pudo cerrar sesión.', 'danger');
     }
   };
 
@@ -48,6 +48,14 @@ export default function PerfilTab() {
               </View>
             </View>
           </View>
+          <View className="mt-4">
+            <Button
+              label="Editar perfil"
+              variant="secondary"
+              size="sm"
+              onPress={() => router.push('/(app)/profile/edit')}
+            />
+          </View>
         </Card>
 
         <Card variant="elevated">
@@ -61,7 +69,7 @@ export default function PerfilTab() {
                 {profile?.album_pct ?? 0}%
               </Text>
               <Text className="text-sm text-text-secondary font-sans">
-                Stats reales en Fase 4.
+                El conteo total se calcula en segundo plano.
               </Text>
             </View>
           </View>
@@ -93,6 +101,11 @@ export default function PerfilTab() {
                 />
               );
             })}
+            {(!profile?.scope || profile.scope.length === 0) && (
+              <Text className="text-text-tertiary text-sm font-sans">
+                No tienes universidades seleccionadas. Edita tu perfil para configurarlas.
+              </Text>
+            )}
           </View>
         </Card>
 

@@ -82,7 +82,7 @@ export default function UiPlayground() {
             <Input
               label="WhatsApp"
               placeholder="+593 99 ..."
-              error="Formato inválido — empezá con +593"
+              error="Formato inválido — empieza con +593"
             />
           </View>
         </Section>
@@ -173,7 +173,7 @@ export default function UiPlayground() {
           <Card variant="outline">
             <EmptyState
               title="Sin matches todavía"
-              description="Agregá cromos repetidos para empezar a encontrar intercambios en tu universidad."
+              description="Agrega cromos repetidos para empezar a encontrar intercambios en tu universidad."
               action={<Button label="Ir al álbum" />}
             />
           </Card>

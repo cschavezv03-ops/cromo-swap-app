@@ -1,14 +1,12 @@
 import { useRouter } from 'expo-router';
 import { useMemo, useState } from 'react';
-import { KeyboardAvoidingView, Platform, Pressable, ScrollView, Text, View } from 'react-native';
+import { KeyboardAvoidingView, Platform, ScrollView, Text, View } from 'react-native';
 
+import { ScopePicker } from '@/features/auth/components/ScopePicker';
 import { UniversityBadge } from '@/features/auth/components/UniversityBadge';
 import { useUpdateProfile } from '@/features/auth/hooks/useAuthMutations';
 import { useSession } from '@/features/auth/hooks/useSession';
-import {
-  detectUniversityFromEmail,
-  universities,
-} from '@/features/auth/lib/universities';
+import { detectUniversityFromEmail } from '@/features/auth/lib/universities';
 import { Button, Input, Screen, useToast } from '@/ui';
 
 export default function ProfileSetupScreen() {
@@ -21,10 +19,6 @@ export default function ProfileSetupScreen() {
   const [displayName, setDisplayName] = useState('');
   const [scopeIds, setScopeIds] = useState<string[]>(detectedUni ? [detectedUni.id] : []);
 
-  const toggleScope = (id: string) => {
-    setScopeIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
-  };
-
   const onSubmit = async () => {
     const name = displayName.trim();
     if (name.length < 2) {
@@ -33,13 +27,13 @@ export default function ProfileSetupScreen() {
     }
     if (!detectedUni) {
       toast.show(
-        'No pudimos detectar tu universidad del correo. Volvé y reingresá un mail institucional.',
+        'No se pudo detectar tu universidad del correo. Regresa y vuelve a ingresar un correo institucional.',
         'danger',
       );
       return;
     }
     if (scopeIds.length === 0) {
-      toast.show('Elegí al menos una universidad para tu scope.', 'warning');
+      toast.show('Elige al menos una universidad para tu scope.', 'warning');
       return;
     }
     try {
@@ -51,7 +45,7 @@ export default function ProfileSetupScreen() {
       router.replace('/(app)/(tabs)/album');
     } catch (err) {
       toast.show(
-        err instanceof Error ? err.message : 'No pudimos guardar tu perfil.',
+        err instanceof Error ? err.message : 'No se pudo guardar tu perfil.',
         'danger',
       );
     }
@@ -63,20 +57,20 @@ export default function ProfileSetupScreen() {
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         style={{ flex: 1 }}
       >
-        <ScrollView contentContainerStyle={{ flexGrow: 1, paddingHorizontal: 24, paddingTop: 32 }}>
+        <ScrollView contentContainerStyle={{ flexGrow: 1, paddingHorizontal: 24, paddingTop: 32, paddingBottom: 40 }}>
           <Text className="text-xs font-sans-semibold uppercase tracking-[0.18em] text-text-tertiary">
             Último paso
           </Text>
           <Text className="mt-2 text-3xl font-sans-black text-text-primary">
-            Contanos quién sos
+            Cuéntanos quién eres
           </Text>
           <Text className="mt-3 text-base text-text-secondary font-sans">
-            Esto es lo que ven los otros usuarios cuando aparezcas en un match.
+            Esto es lo que ven otros usuarios cuando apareces en un match.
           </Text>
 
-          <View className="mt-8 gap-4">
+          <View className="mt-8 gap-5">
             <Input
-              label="Nombre y apellido"
+              label="Nombre completo"
               placeholder="ej. María Pérez"
               autoCapitalize="words"
               autoComplete="name"
@@ -86,58 +80,30 @@ export default function ProfileSetupScreen() {
             />
 
             <View>
-              <Text className="mb-2 text-xs font-sans-medium uppercase tracking-wider text-text-tertiary">
-                Universidad
+              <Text className="mb-2 text-[11px] font-sans-semibold uppercase tracking-[0.15em] text-text-tertiary">
+                Tu correo institucional
               </Text>
-              <UniversityBadge university={detectedUni} size="lg" />
+              <View className="rounded-lg border border-border bg-surface px-4 py-3">
+                <Text className="font-sans text-text-primary">{user?.email}</Text>
+              </View>
               <Text className="mt-2 text-xs text-text-tertiary font-sans">
-                Tu universidad se detecta del dominio de tu correo y no se puede editar.
+                Tu universidad se detecta del dominio del correo y no se puede editar.
               </Text>
             </View>
 
-            <View>
-              <Text className="mb-2 text-xs font-sans-medium uppercase tracking-wider text-text-tertiary">
-                Tu scope ({scopeIds.length})
-              </Text>
-              <Text className="mb-3 text-sm text-text-secondary font-sans">
-                ¿Con qué universidades querés intercambiar?
-              </Text>
-              <View className="flex-row flex-wrap gap-2">
-                {universities.map((u) => {
-                  const selected = scopeIds.includes(u.id);
-                  const isOwn = detectedUni?.id === u.id;
-                  return (
-                    <Pressable
-                      key={u.id}
-                      onPress={() => toggleScope(u.id)}
-                      className="rounded-pill border px-4 py-2"
-                      style={{
-                        borderColor: selected ? u.color : '#E5E5EA',
-                        backgroundColor: selected ? `${u.color}20` : 'transparent',
-                      }}
-                    >
-                      <Text
-                        className="text-sm font-sans-semibold"
-                        style={{ color: selected ? u.color : '#6E6E76' }}
-                      >
-                        {u.short}
-                        {isOwn ? ' · vos' : ''}
-                      </Text>
-                    </Pressable>
-                  );
-                })}
-              </View>
-            </View>
+            <ScopePicker
+              ownUniversity={detectedUni}
+              value={scopeIds}
+              onChange={setScopeIds}
+            />
           </View>
 
-          <View className="mt-10 pb-6">
+          <View className="mt-8">
             <Button
               label="Empezar"
               size="lg"
               loading={updateProfile.isPending}
-              disabled={
-                displayName.trim().length < 2 || scopeIds.length === 0 || updateProfile.isPending
-              }
+              disabled={displayName.trim().length < 2 || updateProfile.isPending}
               onPress={onSubmit}
             />
           </View>

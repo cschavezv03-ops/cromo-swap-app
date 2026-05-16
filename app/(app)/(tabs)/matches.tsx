@@ -6,7 +6,7 @@ export default function MatchesTab() {
       <ScreenHeader title="Matches" />
       <EmptyState
         title="Sin matches todavía"
-        description="Agregá cromos repetidos para empezar a encontrar intercambios."
+        description="Agrega cromos repetidos para empezar a encontrar intercambios."
       />
     </Screen>
   );

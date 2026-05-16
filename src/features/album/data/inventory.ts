@@ -3,15 +3,24 @@ import {
   getDatabase,
   type InventoryLocal,
 } from '@/features/storage/db';
-import { enqueueInventoryDelta } from '@/features/storage/sync';
+import { flushDirtyInventory } from '@/features/storage/sync';
 
-function computeStatus(owned: number, pasted: number): 'missing' | 'have' | 'repeated' {
-  if (owned === 0) return 'missing';
-  if (owned > pasted) return 'repeated';
-  return 'have';
+/**
+ * Etiqueta visible para el usuario.
+ *   owned=0   → missing  (lo necesitas)
+ *   owned=1   → have     (lo tienes, sin repetidos)
+ *   owned>=2  → repeated (tienes duplicados)
+ *
+ * Coincide con la columna generada `inventory_items.status` en Supabase
+ * (migración 0035) para que el cliente y el servidor reporten lo mismo.
+ */
+function computeStatus(owned: number): 'missing' | 'have' | 'repeated' {
+  if (owned <= 0) return 'missing';
+  if (owned === 1) return 'have';
+  return 'repeated';
 }
 
-/** Read the current inventory row for a cromo (returns zeroed default if absent). */
+/** Lee la fila de inventario local; devuelve un default en cero si no existe. */
 export async function readInventory(cromoId: string): Promise<InventoryLocal> {
   const db = await getDatabase();
   const row = await db.getFirstAsync<InventoryLocal>(
@@ -36,8 +45,8 @@ export async function readAllInventory(): Promise<InventoryLocal[]> {
 }
 
 /**
- * Apply a delta to an inventory row LOCALLY and enqueue a sync to Supabase.
- * Optimistic: returns the new row after update.
+ * Aplica un delta al inventario local Y dispara sync en segundo plano.
+ * Optimista: retorna la fila actualizada de inmediato.
  */
 export async function applyInventoryDelta(args: {
   cromo_id: string;
@@ -49,9 +58,10 @@ export async function applyInventoryDelta(args: {
   const db = await getDatabase();
   const current = await readInventory(cromo_id);
   const owned = Math.max(0, current.owned_quantity + delta_owned);
+  // El servidor exige pasted <= owned (CHECK constraint).
   const pasted = Math.max(0, Math.min(owned, current.pasted_quantity + delta_pasted));
   const wanted = Math.max(0, current.wanted_quantity + delta_wanted);
-  const status = computeStatus(owned, pasted);
+  const status = computeStatus(owned);
   const updatedAt = Date.now();
 
   await db.runAsync(
@@ -67,12 +77,8 @@ export async function applyInventoryDelta(args: {
     [cromo_id, owned, pasted, wanted, status, updatedAt],
   );
 
-  await enqueueInventoryDelta({
-    cromo_id,
-    delta_owned,
-    delta_pasted,
-    delta_wanted,
-  });
+  // Dispara el sync sin bloquear la UI. flushDirtyInventory dedupea por sí solo.
+  void flushDirtyInventory();
 
   return {
     cromo_id,
@@ -85,18 +91,15 @@ export async function applyInventoryDelta(args: {
   };
 }
 
-/**
- * Set absolute owned quantity (used by long-press editor).
- */
+/** Setea la cantidad de owned absoluta (usado por el editor del long-press). */
 export async function setOwnedQuantity(cromo_id: string, owned: number): Promise<InventoryLocal> {
   const current = await readInventory(cromo_id);
   return applyInventoryDelta({ cromo_id, delta_owned: owned - current.owned_quantity });
 }
 
 /**
- * Pull remote inventory rows and upsert into local. Used on cold start when
- * the user logs in for the first time on this device. Local rows with
- * dirty=1 are preserved (their deltas are still in sync_queue).
+ * Trae las filas remotas de inventario del usuario y las upsertea en local.
+ * Preserva filas dirty=1 (todavía no sincronizadas).
  */
 export async function pullRemoteInventory(): Promise<number> {
   const { data: userData } = await supabase.auth.getUser();
@@ -105,7 +108,7 @@ export async function pullRemoteInventory(): Promise<number> {
 
   const { data, error } = await supabase
     .from('inventory_items')
-    .select('cromo_id, owned_quantity, pasted_quantity, wanted_quantity, status, updated_at')
+    .select('cromo_id, owned_quantity, pasted_quantity, wanted_quantity, updated_at')
     .eq('user_id', userId);
   if (error) throw error;
 
@@ -117,8 +120,11 @@ export async function pullRemoteInventory(): Promise<number> {
         `SELECT dirty FROM inventory_local WHERE cromo_id = ?`,
         [row.cromo_id],
       );
-      if (localRow?.dirty === 1) continue; // pending push; skip overwrite
+      if (localRow?.dirty === 1) continue; // pendiente de push; no piso
 
+      const owned = row.owned_quantity;
+      const pasted = row.pasted_quantity;
+      const wanted = row.wanted_quantity;
       await tx.runAsync(
         `INSERT INTO inventory_local (cromo_id, owned_quantity, pasted_quantity, wanted_quantity, status, updated_at, dirty)
          VALUES (?, ?, ?, ?, ?, ?, 0)
@@ -129,14 +135,7 @@ export async function pullRemoteInventory(): Promise<number> {
            status = excluded.status,
            updated_at = excluded.updated_at,
            dirty = 0`,
-        [
-          row.cromo_id,
-          row.owned_quantity,
-          row.pasted_quantity,
-          row.wanted_quantity,
-          row.status ?? computeStatus(row.owned_quantity, row.pasted_quantity),
-          new Date(row.updated_at).getTime(),
-        ],
+        [row.cromo_id, owned, pasted, wanted, computeStatus(owned), new Date(row.updated_at).getTime()],
       );
       count++;
     }
@@ -145,8 +144,7 @@ export async function pullRemoteInventory(): Promise<number> {
 }
 
 /**
- * Convenience: increment owned by 1 for a sequence of cromo ids (sobre entry).
- * Each id increments by 1, even if it appears multiple times in the array.
+ * Suma N copias para cada cromo (entrada por sobres).
  */
 export async function bulkAddByPrintedCodes(
   pairs: Array<{ cromo_id: string; count: number }>,

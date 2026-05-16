@@ -2,18 +2,43 @@ import { Tabs } from 'expo-router';
 import { Text, View } from 'react-native';
 
 import { useTheme } from '@/theme/ThemeProvider';
+import {
+  AlbumIcon,
+  AvisosIcon,
+  MatchesIcon,
+  MercadoIcon,
+  PerfilIcon,
+} from '@/ui/icons/TabBarIcons';
 
-type IconProps = { focused: boolean; label: string };
+type IconRender = (focused: boolean, color: string) => React.ReactNode;
+type TabItem = {
+  name: 'album' | 'matches' | 'mercado' | 'avisos' | 'perfil';
+  label: string;
+  icon: IconRender;
+};
 
-function TabIcon({ focused, label }: IconProps) {
+const TABS: TabItem[] = [
+  { name: 'album',   label: 'Álbum',   icon: (_f, c) => <AlbumIcon   color={c} /> },
+  { name: 'matches', label: 'Matches', icon: (_f, c) => <MatchesIcon color={c} /> },
+  { name: 'mercado', label: 'Mercado', icon: (_f, c) => <MercadoIcon color={c} /> },
+  { name: 'avisos',  label: 'Avisos',  icon: (_f, c) => <AvisosIcon  color={c} /> },
+  { name: 'perfil',  label: 'Perfil',  icon: (_f, c) => <PerfilIcon  color={c} /> },
+];
+
+function TabContent({ focused, label, icon }: { focused: boolean; label: string; icon: IconRender }) {
   const { colors } = useTheme();
+  const tint = focused ? colors.textPrimary : colors.textTertiary;
   return (
-    <View style={{ alignItems: 'center', justifyContent: 'center' }}>
+    <View style={{ alignItems: 'center', justifyContent: 'center', width: 64, paddingTop: 4 }}>
+      {icon(focused, tint)}
       <Text
+        numberOfLines={1}
         style={{
-          fontSize: 11,
+          marginTop: 4,
+          fontSize: 10,
           fontWeight: focused ? '700' : '500',
-          color: focused ? colors.textPrimary : colors.textTertiary,
+          color: tint,
+          letterSpacing: 0.2,
         }}
       >
         {label}
@@ -28,47 +53,28 @@ export default function TabsLayout() {
     <Tabs
       screenOptions={{
         headerShown: false,
+        tabBarShowLabel: false,
         tabBarStyle: {
           backgroundColor: colors.bg,
           borderTopColor: colors.border,
           borderTopWidth: 0.5,
-          height: 64,
-          paddingTop: 8,
-          paddingBottom: 8,
+          height: 68,
+          paddingTop: 6,
+          paddingBottom: 10,
         },
-        tabBarShowLabel: false,
       }}
     >
-      <Tabs.Screen
-        name="album"
-        options={{
-          tabBarIcon: ({ focused }) => <TabIcon focused={focused} label="Álbum" />,
-        }}
-      />
-      <Tabs.Screen
-        name="matches"
-        options={{
-          tabBarIcon: ({ focused }) => <TabIcon focused={focused} label="Matches" />,
-        }}
-      />
-      <Tabs.Screen
-        name="mercado"
-        options={{
-          tabBarIcon: ({ focused }) => <TabIcon focused={focused} label="Mercado" />,
-        }}
-      />
-      <Tabs.Screen
-        name="avisos"
-        options={{
-          tabBarIcon: ({ focused }) => <TabIcon focused={focused} label="Avisos" />,
-        }}
-      />
-      <Tabs.Screen
-        name="perfil"
-        options={{
-          tabBarIcon: ({ focused }) => <TabIcon focused={focused} label="Perfil" />,
-        }}
-      />
+      {TABS.map((t) => (
+        <Tabs.Screen
+          key={t.name}
+          name={t.name}
+          options={{
+            tabBarIcon: ({ focused }) => (
+              <TabContent focused={focused} label={t.label} icon={t.icon} />
+            ),
+          }}
+        />
+      ))}
     </Tabs>
   );
 }

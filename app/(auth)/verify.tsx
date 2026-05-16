@@ -56,7 +56,7 @@ export default function VerifyScreen() {
       router.replace('/(auth)/profile-setup');
     } catch (err) {
       toast.show(
-        err instanceof Error ? err.message : 'No pudimos guardar la contraseña.',
+        err instanceof Error ? err.message : 'No se pudo guardar la contraseña.',
         'danger',
       );
     }
@@ -69,7 +69,7 @@ export default function VerifyScreen() {
       toast.show('Código reenviado.', 'success');
       setCooldown(RESEND_COOLDOWN_SEC);
     } catch {
-      toast.show('No pudimos reenviar el código.', 'danger');
+      toast.show('No se pudo reenviar el código.', 'danger');
     }
   };
 
@@ -86,9 +86,9 @@ export default function VerifyScreen() {
 
           {step === 'code' ? (
             <>
-              <Text className="text-3xl font-sans-black text-text-primary">Revisá tu mail</Text>
+              <Text className="text-3xl font-sans-black text-text-primary">Revisa tu correo</Text>
               <Text className="mt-3 text-base text-text-secondary font-sans">
-                Mandamos un código de {OTP_LENGTH} dígitos a{'\n'}
+                Enviamos un código de {OTP_LENGTH} dígitos a{'\n'}
                 <Text className="font-sans-semibold text-text-primary">{email}</Text>
               </Text>
 
@@ -126,9 +126,9 @@ export default function VerifyScreen() {
             </>
           ) : (
             <>
-              <Text className="text-3xl font-sans-black text-text-primary">Creá una contraseña</Text>
+              <Text className="text-3xl font-sans-black text-text-primary">Crea una contraseña</Text>
               <Text className="mt-3 text-base text-text-secondary font-sans">
-                Vas a usarla la próxima vez que entres con{' '}
+                La usarás la próxima vez que entres con{' '}
                 <Text className="font-sans-semibold text-text-primary">{email}</Text>.
               </Text>
 

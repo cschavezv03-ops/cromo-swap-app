@@ -15,7 +15,7 @@ type Props = {
 function CromoCardComponent({ cromo, country, onPress, onLongPress }: Props) {
   const isMissing = cromo.status === 'missing';
   const isRepeated = cromo.status === 'repeated';
-  const repeatedExtra = isRepeated ? cromo.owned - cromo.pasted - 1 : 0;
+  const ownedBadge = isRepeated ? cromo.owned : 0;
   const stripeColor = country?.stripe ?? '#9CA3AF';
 
   return (
@@ -82,14 +82,12 @@ function CromoCardComponent({ cromo, country, onPress, onLongPress }: Props) {
         )}
       </View>
 
-      {isRepeated && (
+      {isRepeated && ownedBadge >= 2 && (
         <View
           className="absolute right-1 top-1 h-5 rounded-pill bg-text-primary px-1.5"
           style={{ justifyContent: 'center' }}
         >
-          <Text className="text-[10px] font-sans-bold text-bg">
-            x{Math.max(2, repeatedExtra + 2)}
-          </Text>
+          <Text className="text-[10px] font-sans-bold text-bg">x{ownedBadge}</Text>
         </View>
       )}
     </Pressable>

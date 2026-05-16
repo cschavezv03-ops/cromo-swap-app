@@ -29,7 +29,7 @@ export default function SignInScreen() {
       router.replace('/(app)/(tabs)/album');
     } catch (err) {
       toast.show(
-        err instanceof Error ? err.message : 'No pudimos iniciar sesión.',
+        err instanceof Error ? err.message : 'No se pudo iniciar sesión.',
         'danger',
       );
     }
@@ -41,7 +41,7 @@ export default function SignInScreen() {
       router.push({ pathname: '/(auth)/verify', params: { email: email.trim().toLowerCase() } });
     } catch (err) {
       toast.show(
-        err instanceof Error ? err.message : 'No pudimos enviar el código.',
+        err instanceof Error ? err.message : 'No se pudo enviar el código.',
         'danger',
       );
     }
@@ -62,9 +62,9 @@ export default function SignInScreen() {
             <Text className="text-text-primary text-xl">←</Text>
           </Pressable>
 
-          <Text className="text-3xl font-sans-black text-text-primary">Iniciá sesión</Text>
+          <Text className="text-3xl font-sans-black text-text-primary">Inicia sesión</Text>
           <Text className="mt-3 text-base text-text-secondary font-sans">
-            Volvé a tu álbum donde lo dejaste.
+            Vuelve a tu álbum donde lo dejaste.
           </Text>
 
           <View className="mt-6 flex-row gap-2">
@@ -147,7 +147,7 @@ export default function SignInScreen() {
           <View className="mt-auto pb-6">
             <Link href="/(auth)/email" className="text-center text-text-secondary font-sans">
               ¿Primera vez?{' '}
-              <Text className="text-accent font-sans-semibold">Creá tu cuenta</Text>
+              <Text className="text-accent font-sans-semibold">Crea tu cuenta</Text>
             </Link>
           </View>
         </View>

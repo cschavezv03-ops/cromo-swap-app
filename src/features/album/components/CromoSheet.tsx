@@ -62,7 +62,7 @@ export const CromoSheet = forwardRef<CromoSheetHandle>(function CromoSheet(_, re
             <View className="flex-row items-center justify-between">
               <View>
                 <Text className="text-xs font-sans-semibold uppercase tracking-wider text-text-tertiary">
-                  Tenés
+                  Tienes
                 </Text>
                 <Text className="text-3xl font-sans-black text-text-primary">{cromo.owned}</Text>
               </View>

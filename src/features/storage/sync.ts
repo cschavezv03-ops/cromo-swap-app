@@ -2,94 +2,88 @@ import NetInfo from '@react-native-community/netinfo';
 
 import { supabase } from '@/lib/supabase';
 
-import { getDatabase, type SyncQueueRow } from './db';
+import { getDatabase, type InventoryLocal } from './db';
 import { kv, KvKey } from './kv';
-
-type InventoryDelta = {
-  cromo_id: string;
-  delta_owned: number;
-  delta_pasted: number;
-  delta_wanted: number;
-};
 
 let isRunning = false;
 let listenerInstalled = false;
 
 /**
- * Enqueue a local inventory delta to be pushed to Supabase when online.
- * Caller has ALREADY updated `inventory_local` optimistically with `dirty=1`.
+ * Drena el inventario local pendiente (dirty=1) al servidor.
+ * Estrategia: upsert directo por (user_id, cromo_id) con valores absolutos
+ * — last-write-wins. No usa RPCs; aprovecha el UNIQUE constraint que ya
+ * existe en `inventory_items(user_id, cromo_id)`.
  */
-export async function enqueueInventoryDelta(delta: InventoryDelta): Promise<void> {
-  const db = await getDatabase();
-  await db.runAsync(
-    `INSERT INTO sync_queue (cromo_id, payload, created_at) VALUES (?, ?, ?)`,
-    [delta.cromo_id, JSON.stringify(delta), Date.now()],
-  );
-  void flushQueue(); // fire and forget; respects isRunning guard
-}
-
-/**
- * Drain the queue. Each row pushes an `fn_apply_inventory_delta` RPC to
- * Supabase. Successes pop the row; failures bump `attempts` and reschedule
- * via exponential backoff. Stops on transient network errors.
- *
- * Note: the RPC `fn_apply_inventory_delta` does NOT yet exist server-side
- * (will be added in migration 0036 — Fase 5). Until then this is a no-op
- * skeleton that returns immediately.
- */
-export async function flushQueue(): Promise<void> {
-  if (isRunning) return;
+export async function flushDirtyInventory(): Promise<{ pushed: number; failed: number }> {
+  if (isRunning) return { pushed: 0, failed: 0 };
   isRunning = true;
   try {
     const state = await NetInfo.fetch();
-    if (!state.isConnected || state.isInternetReachable === false) return;
+    if (!state.isConnected || state.isInternetReachable === false) {
+      return { pushed: 0, failed: 0 };
+    }
+
+    const { data: u } = await supabase.auth.getUser();
+    const userId = u.user?.id;
+    if (!userId) return { pushed: 0, failed: 0 };
 
     const db = await getDatabase();
-    const rows = await db.getAllAsync<SyncQueueRow>(
-      `SELECT * FROM sync_queue WHERE next_retry_at IS NULL OR next_retry_at <= ? ORDER BY id ASC LIMIT 50`,
-      [Date.now()],
+    const rows = await db.getAllAsync<InventoryLocal>(
+      `SELECT * FROM inventory_local WHERE dirty = 1 LIMIT 100`,
     );
 
+    let pushed = 0;
+    let failed = 0;
+
     for (const row of rows) {
-      const delta = JSON.parse(row.payload) as InventoryDelta;
-      const { error } = await supabase.rpc(
-        // The RPC is created in migration 0036. Until then this errors gracefully.
-        'fn_apply_inventory_delta' as never,
-        {
-          p_cromo_id: delta.cromo_id,
-          p_delta_owned: delta.delta_owned,
-          p_delta_pasted: delta.delta_pasted,
-          p_delta_wanted: delta.delta_wanted,
-        } as never,
-      );
-
-      if (error) {
-        const attempts = row.attempts + 1;
-        const backoffMs = Math.min(60_000, 2 ** attempts * 1000);
-        await db.runAsync(
-          `UPDATE sync_queue SET attempts = ?, next_retry_at = ? WHERE id = ?`,
-          [attempts, Date.now() + backoffMs, row.id],
+      const { error } = await supabase
+        .from('inventory_items')
+        .upsert(
+          {
+            user_id: userId,
+            cromo_id: row.cromo_id,
+            owned_quantity: row.owned_quantity,
+            pasted_quantity: row.pasted_quantity,
+            wanted_quantity: row.wanted_quantity,
+          },
+          { onConflict: 'user_id,cromo_id' },
         );
 
-        // Stop early on auth/network errors so we don't burn attempts.
-        if (error.message.toLowerCase().includes('jwt')) break;
+      if (!error) {
+        await db.runAsync(`UPDATE inventory_local SET dirty = 0 WHERE cromo_id = ?`, [row.cromo_id]);
+        pushed++;
       } else {
-        await db.runAsync(`DELETE FROM sync_queue WHERE id = ?`, [row.id]);
-        await db.runAsync(
-          `UPDATE inventory_local SET dirty = 0 WHERE cromo_id = ?`,
-          [delta.cromo_id],
-        );
+        failed++;
+        if (__DEV__) {
+          // eslint-disable-next-line no-console
+          console.warn('[sync] upsert error for', row.cromo_id, '→', error.message);
+        }
+        // If auth expired, abort the loop; the next reconnect will pick up.
+        if (error.message.toLowerCase().includes('jwt')) break;
       }
     }
-    kv.set(KvKey.lastSyncedAt, String(Date.now()));
+
+    if (pushed > 0) {
+      kv.set(KvKey.lastSyncedAt, String(Date.now()));
+    }
+    return { pushed, failed };
   } finally {
     isRunning = false;
   }
 }
 
+/** Compatibilidad: el callsite antiguo todavía llama a esta función. */
+export async function enqueueInventoryDelta(_delta: unknown): Promise<void> {
+  // dirty=1 ya lo seteó inventory.ts. Solo necesitamos disparar el flush.
+  void flushDirtyInventory();
+}
+
+/** Alias retro-compat. */
+export const flushQueue = flushDirtyInventory;
+
 /**
- * Install one global NetInfo listener that flushes the queue whenever the
- * device transitions to online. Idempotent — call from root layout once.
+ * Suscribe el flush al cambio de red. Al volver online, intenta drenar.
+ * Idempotente.
  */
 export function installSyncListener(): () => void {
   if (listenerInstalled) return () => {};
@@ -97,7 +91,7 @@ export function installSyncListener(): () => void {
 
   const unsub = NetInfo.addEventListener((state) => {
     if (state.isConnected && state.isInternetReachable !== false) {
-      void flushQueue();
+      void flushDirtyInventory();
     }
   });
 

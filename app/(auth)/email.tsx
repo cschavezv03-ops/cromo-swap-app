@@ -33,7 +33,7 @@ export default function EmailScreen() {
       router.push({ pathname: '/(auth)/verify', params: { email: trimmed } });
     } catch (err) {
       toast.show(
-        err instanceof Error ? err.message : 'No pudimos enviar el código. Intentá de nuevo.',
+        err instanceof Error ? err.message : 'No se pudo enviar el código. Inténtalo de nuevo.',
         'danger',
       );
     }
@@ -50,7 +50,7 @@ export default function EmailScreen() {
             Mundial 2026
           </Text>
           <Text className="mt-2 text-3xl font-sans-black text-text-primary">
-            Empezá tu álbum
+            Empieza tu álbum
           </Text>
           <Text className="mt-3 text-base text-text-secondary font-sans">
             Te enviamos un código a tu correo universitario para crear tu cuenta o iniciar sesión.
@@ -90,8 +90,8 @@ export default function EmailScreen() {
           <View className="mt-auto pb-6">
             <Pressable hitSlop={8}>
               <Link href="/(auth)/sign-in" className="text-center text-text-secondary font-sans">
-                ¿Ya tenés cuenta?{' '}
-                <Text className="text-accent font-sans-semibold">Iniciá sesión</Text>
+                ¿Ya tienes cuenta?{' '}
+                <Text className="text-accent font-sans-semibold">Inicia sesión</Text>
               </Link>
             </Pressable>
             {__DEV__ && (

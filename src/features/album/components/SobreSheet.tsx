@@ -64,7 +64,7 @@ export const SobreSheet = forwardRef<SobreSheetHandle>(function SobreSheet(_, re
       <View>
         <Text className="text-2xl font-sans-black text-text-primary">Abrir sobre</Text>
         <Text className="mt-1 text-sm text-text-secondary font-sans">
-          Ingresá los números del sobre separados por coma o espacio. Repetí o usá ×2 para varios.
+          Ingresa los números del sobre separados por coma o espacio. Repite o usa ×2 para varios.
         </Text>
 
         <View className="mt-4 rounded-md border border-border bg-surface px-3 py-2">

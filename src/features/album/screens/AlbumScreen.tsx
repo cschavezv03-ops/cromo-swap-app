@@ -93,7 +93,7 @@ export function AlbumScreen() {
     (cromo: AlbumCromo) => {
       inc.mutate(cromo.id, {
         onError: (err) => {
-          toast.show(err instanceof Error ? err.message : 'No pudimos actualizar.', 'danger');
+          toast.show(err instanceof Error ? err.message : 'No se pudo actualizar.', 'danger');
         },
       });
     },
@@ -111,7 +111,7 @@ export function AlbumScreen() {
       void qc.invalidateQueries({ queryKey: albumQueryKey });
       if (n > 0) toast.show(`Sincronizado: ${n} cromos`, 'success');
     } catch (err) {
-      toast.show(err instanceof Error ? err.message : 'No pudimos sincronizar.', 'warning');
+      toast.show(err instanceof Error ? err.message : 'No se pudo sincronizar.', 'warning');
     }
   }, [qc, toast]);
 

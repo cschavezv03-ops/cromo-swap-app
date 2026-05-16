@@ -6,7 +6,7 @@ export default function AvisosTab() {
       <ScreenHeader title="Avisos" />
       <EmptyState
         title="Nada nuevo por aquí"
-        description="Acá vas a ver matches, intercambios aceptados y novedades de tu scope."
+        description="Aquí verás matches, intercambios aceptados y novedades de tu scope."
       />
     </Screen>
   );
