@@ -1,46 +1,47 @@
-import { ExpoConfig, ConfigContext } from 'expo/config';
+import type { ExpoConfig } from 'expo/config';
 
-export default ({ config }: ConfigContext): ExpoConfig => ({
-  ...config,
+const config: ExpoConfig = {
   name: 'Cromos',
-  slug: 'cromos',
-  scheme: 'cromos',
-  version: '1.0.0',
+  slug: 'cromo-swap-app',
+  version: '0.1.0',
   orientation: 'portrait',
-  icon: './assets/icon.png',
+  scheme: 'cromos',
   userInterfaceStyle: 'light',
+  newArchEnabled: true,
   splash: {
-    image: './assets/splash-icon.png',
     resizeMode: 'contain',
-    backgroundColor: '#FEFDF7',
+    backgroundColor: '#F7F4ED',
   },
+  assetBundlePatterns: ['**/*'],
   ios: {
     supportsTablet: false,
-    bundleIdentifier: 'com.cromos.app',
+    bundleIdentifier: 'ec.cromos.app',
+    config: { usesNonExemptEncryption: false },
   },
   android: {
-    adaptiveIcon: {
-      foregroundImage: './assets/adaptive-icon.png',
-      backgroundColor: '#FEFDF7',
-    },
-    package: 'com.cromos.app',
+    package: 'ec.cromos.app',
+    edgeToEdgeEnabled: true,
   },
   web: {
-    favicon: './assets/favicon.png',
     bundler: 'metro',
   },
   plugins: [
-    [
-      'expo-router',
-      {
-        root: './src/app',
-      },
-    ],
-    'expo-font',
+    'expo-router',
     'expo-secure-store',
+    'expo-font',
   ],
-  extra: {
-    supabaseUrl: process.env.EXPO_PUBLIC_SUPABASE_URL,
-    supabaseAnonKey: process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY,
+  experiments: {
+    typedRoutes: true,
   },
-});
+  extra: {
+    supabaseUrl:
+      process.env.EXPO_PUBLIC_SUPABASE_URL ?? 'https://wpcnqfyfcnebtmxstcpo.supabase.co',
+    // Publishable keys are designed for public client embedding (like Stripe pk_*).
+    // Replace with your project's publishable key if you fork this repo.
+    supabaseAnonKey:
+      process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY ??
+      'sb_publishable_9rvnmCd7Lu4_0g1TtWrPZw_JQ_X169R',
+  },
+};
+
+export default config;

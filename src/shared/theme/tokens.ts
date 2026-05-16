@@ -1,0 +1,61 @@
+export const colors = {
+  cream: {
+    DEFAULT: '#F7F4ED',
+    50: '#FBFAF5',
+    100: '#F7F4ED',
+    200: '#EFEADC',
+    300: '#E5E0D2',
+  },
+  ink: {
+    900: '#15140F',
+    800: '#1F1E18',
+    700: '#3A372F',
+    600: '#5C584D',
+    500: '#7A766B',
+    400: '#9C9789',
+    300: '#B8B3A6',
+    200: '#D6D1C2',
+    100: '#E5E0D2',
+  },
+  verde: {
+    900: '#0F2F1F',
+    800: '#173F2A',
+    700: '#1F5E3F',
+    600: '#2D7C56',
+    500: '#3DA071',
+    400: '#6BC18F',
+    300: '#9DD9B5',
+    200: '#C8EAD4',
+    100: '#E5F4EB',
+  },
+  white: '#FFFFFF',
+  black: '#000000',
+  success: '#1F5E3F',
+  warning: '#B88600',
+  danger: '#B23A2E',
+  info: '#2C5BA3',
+} as const;
+
+export const radii = {
+  xs: 4,
+  sm: 8,
+  md: 12,
+  lg: 16,
+  xl: 20,
+  '2xl': 24,
+  '3xl': 32,
+  full: 9999,
+} as const;
+
+export const spacing = {
+  0: 0,
+  1: 4,
+  2: 8,
+  3: 12,
+  4: 16,
+  5: 20,
+  6: 24,
+  8: 32,
+  10: 40,
+  12: 48,
+} as const;
