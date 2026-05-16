@@ -94,6 +94,14 @@ export default function EmailScreen() {
                 <Text className="text-accent font-sans-semibold">Iniciá sesión</Text>
               </Link>
             </Pressable>
+            {__DEV__ && (
+              <Link
+                href="/dev/ui"
+                className="mt-4 text-center text-xs text-text-tertiary font-sans"
+              >
+                · dev · UI playground
+              </Link>
+            )}
           </View>
         </View>
       </KeyboardAvoidingView>
