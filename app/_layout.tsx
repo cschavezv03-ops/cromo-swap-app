@@ -1,24 +1,43 @@
 import 'react-native-gesture-handler';
 import '../global.css';
 
+import { BottomSheetModalProvider } from '@gorhom/bottom-sheet';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
-import { useColorScheme } from 'react-native';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
+
+import { ThemeProvider, useTheme } from '@/theme/ThemeProvider';
+import { ToastProvider } from '@/ui/Toast';
 
 export default function RootLayout() {
-  const scheme = useColorScheme();
-  const isDark = scheme === 'dark';
-
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
+      <SafeAreaProvider>
+        <ThemeProvider>
+          <BottomSheetModalProvider>
+            <ToastProvider>
+              <ThemedStack />
+            </ToastProvider>
+          </BottomSheetModalProvider>
+        </ThemeProvider>
+      </SafeAreaProvider>
+    </GestureHandlerRootView>
+  );
+}
+
+function ThemedStack() {
+  const { mode, colors } = useTheme();
+  return (
+    <>
       <Stack
         screenOptions={{
           headerShown: false,
-          contentStyle: { backgroundColor: isDark ? '#0B0B0E' : '#FFFFFF' },
+          contentStyle: { backgroundColor: colors.bg },
+          animation: 'fade',
         }}
       />
-      <StatusBar style={isDark ? 'light' : 'dark'} />
-    </GestureHandlerRootView>
+      <StatusBar style={mode === 'dark' ? 'light' : 'dark'} />
+    </>
   );
 }
