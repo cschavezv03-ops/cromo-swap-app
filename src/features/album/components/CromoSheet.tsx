@@ -3,10 +3,14 @@ import { forwardRef, useImperativeHandle, useMemo, useRef, useState } from 'reac
 import { Pressable, Text, View } from 'react-native';
 
 import { cn } from '@/shared/utils/cn';
-import { Sheet } from '@/ui';
+import { Sheet, useToast } from '@/ui';
 
 import { useAlbumData } from '../hooks/useAlbumData';
-import { useDecrementOwned, useIncrementOwned } from '../hooks/useInventoryMutation';
+import {
+  useDecrementOwned,
+  useIncrementOwned,
+  useSetOwned,
+} from '../hooks/useInventoryMutation';
 import type { AlbumCromo, CountryMeta } from '../lib/types';
 
 export type CromoSheetHandle = {
@@ -15,17 +19,16 @@ export type CromoSheetHandle = {
 };
 
 export const CromoSheet = forwardRef<CromoSheetHandle>(function CromoSheet(_, ref) {
+  const toast = useToast();
   const inner = useRef<BottomSheetModal>(null);
   const [cromoId, setCromoId] = useState<string | null>(null);
   const [country, setCountry] = useState<CountryMeta | null>(null);
 
   const inc = useIncrementOwned();
   const dec = useDecrementOwned();
+  const setOwned = useSetOwned();
   const { data: album } = useAlbumData();
 
-  // Buscar el cromo en el cache del álbum cada vez que cambia. Así los
-  // botones +/- actualizan inmediatamente la UI del sheet (antes el sheet
-  // mostraba el snapshot inicial porque vivía en state local).
   const cromo = useMemo<AlbumCromo | null>(() => {
     if (!cromoId || !album) return null;
     for (const s of album.sections) {
@@ -45,8 +48,21 @@ export const CromoSheet = forwardRef<CromoSheetHandle>(function CromoSheet(_, re
     dismiss: () => inner.current?.dismiss(),
   }));
 
+  const handleRemoveAll = () => {
+    if (!cromo || cromo.owned === 0) return;
+    setOwned.mutate(
+      { cromoId: cromo.id, owned: 0 },
+      {
+        onSuccess: () => {
+          toast.show('Cromo eliminado de tu álbum.', 'info');
+          inner.current?.dismiss();
+        },
+      },
+    );
+  };
+
   return (
-    <Sheet ref={inner} snapPoints={['45%', '75%']}>
+    <Sheet ref={inner} snapPoints={['50%', '80%']}>
       {cromo && (
         <View>
           {country && (
@@ -103,6 +119,18 @@ export const CromoSheet = forwardRef<CromoSheetHandle>(function CromoSheet(_, re
               </View>
             </View>
           </View>
+
+          {cromo.owned > 0 && (
+            <Pressable
+              onPress={handleRemoveAll}
+              disabled={setOwned.isPending}
+              className="mt-4 items-center py-3"
+            >
+              <Text className="text-sm font-sans-semibold text-danger">
+                {setOwned.isPending ? 'Eliminando…' : 'Quitar del álbum'}
+              </Text>
+            </Pressable>
+          )}
         </View>
       )}
     </Sheet>
