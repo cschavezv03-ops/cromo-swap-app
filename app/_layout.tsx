@@ -11,7 +11,8 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { useAuthDeepLink } from '@/lib/deep-linking';
-import { mmkvPersister, queryClient } from '@/lib/query-client';
+import { queryClient, queryPersister } from '@/lib/query-client';
+import { kv } from '@/features/storage/kv';
 import { ensureCatalogSeeded } from '@/features/storage/seeds';
 import { installSyncListener } from '@/features/storage/sync';
 import { ThemeProvider, useTheme } from '@/theme/ThemeProvider';
@@ -24,7 +25,7 @@ export default function RootLayout() {
         <ThemeProvider>
           <PersistQueryClientProvider
             client={queryClient}
-            persistOptions={{ persister: mmkvPersister, maxAge: 1000 * 60 * 60 * 24 * 7 }}
+            persistOptions={{ persister: queryPersister, maxAge: 1000 * 60 * 60 * 24 * 7 }}
           >
             <BottomSheetModalProvider>
               <ToastProvider>
@@ -50,6 +51,10 @@ function AppBoot({ children }: { children: ReactNode }) {
     let mounted = true;
     (async () => {
       try {
+        // 1) Hydrate the sync KV cache from AsyncStorage so any sync getString
+        //    call below returns the right value.
+        await kv.load();
+        // 2) Seed/upgrade the local SQLite catalog from the bundled JSON.
         await ensureCatalogSeeded();
       } catch (err) {
         if (mounted) {

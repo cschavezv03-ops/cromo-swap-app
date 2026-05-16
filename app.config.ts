@@ -8,7 +8,6 @@ const config: ExpoConfig = {
   icon: './assets/icon.png',
   scheme: 'cromoswap',
   userInterfaceStyle: 'automatic',
-  newArchEnabled: true,
   splash: {
     image: './assets/splash.png',
     resizeMode: 'contain',
@@ -21,7 +20,6 @@ const config: ExpoConfig = {
       backgroundColor: '#0B0B0E',
     },
     package: 'app.cromoswap.mobile',
-    edgeToEdgeEnabled: true,
     intentFilters: [
       {
         action: 'VIEW',

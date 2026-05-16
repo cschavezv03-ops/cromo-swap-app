@@ -1,9 +1,8 @@
 import { focusManager, onlineManager, QueryClient } from '@tanstack/react-query';
-import { type Persister } from '@tanstack/react-query-persist-client';
+import { createAsyncStoragePersister } from '@tanstack/query-async-storage-persister';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import NetInfo from '@react-native-community/netinfo';
 import { AppState, type AppStateStatus } from 'react-native';
-
-import { kv } from '@/features/storage/kv';
 
 export const queryClient = new QueryClient({
   defaultOptions: {
@@ -34,22 +33,7 @@ onlineManager.setEventListener((setOnline) => {
   });
 });
 
-const PERSISTOR_KEY = 'tanstack.persist.v1';
-
-export const mmkvPersister: Persister = {
-  persistClient: async (client) => {
-    kv.set(PERSISTOR_KEY, JSON.stringify(client));
-  },
-  restoreClient: async () => {
-    const raw = kv.getString(PERSISTOR_KEY);
-    if (!raw) return undefined;
-    try {
-      return JSON.parse(raw);
-    } catch {
-      return undefined;
-    }
-  },
-  removeClient: async () => {
-    kv.remove(PERSISTOR_KEY);
-  },
-};
+export const queryPersister = createAsyncStoragePersister({
+  storage: AsyncStorage,
+  key: 'tanstack.persist.v1',
+});
