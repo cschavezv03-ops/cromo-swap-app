@@ -1,0 +1,68 @@
+import type { ExpoConfig } from 'expo/config';
+
+const config: ExpoConfig = {
+  name: 'Cromo Swap',
+  slug: 'cromo-swap-app',
+  version: '0.1.0',
+  orientation: 'portrait',
+  icon: './assets/icon.png',
+  scheme: 'cromoswap',
+  userInterfaceStyle: 'automatic',
+  newArchEnabled: true,
+  splash: {
+    image: './assets/splash.png',
+    resizeMode: 'contain',
+    backgroundColor: '#0B0B0E',
+  },
+  assetBundlePatterns: ['**/*'],
+  android: {
+    adaptiveIcon: {
+      foregroundImage: './assets/adaptive-icon.png',
+      backgroundColor: '#0B0B0E',
+    },
+    package: 'app.cromoswap.mobile',
+    edgeToEdgeEnabled: true,
+    intentFilters: [
+      {
+        action: 'VIEW',
+        autoVerify: true,
+        data: [{ scheme: 'cromoswap', host: 'auth' }],
+        category: ['BROWSABLE', 'DEFAULT'],
+      },
+    ],
+  },
+  ios: {
+    supportsTablet: false,
+    bundleIdentifier: 'app.cromoswap.mobile',
+  },
+  plugins: [
+    'expo-router',
+    'expo-secure-store',
+    'expo-sqlite',
+    'expo-font',
+    [
+      'expo-splash-screen',
+      {
+        backgroundColor: '#0B0B0E',
+        image: './assets/splash.png',
+        resizeMode: 'contain',
+      },
+    ],
+    [
+      'expo-image-picker',
+      {
+        photosPermission: 'La app necesita acceder a tu galería para subir tu avatar.',
+      },
+    ],
+  ],
+  experiments: {
+    typedRoutes: true,
+  },
+  extra: {
+    eas: {
+      projectId: '',
+    },
+  },
+};
+
+export default config;
