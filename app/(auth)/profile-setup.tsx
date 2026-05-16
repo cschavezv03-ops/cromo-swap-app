@@ -3,7 +3,6 @@ import { useMemo, useState } from 'react';
 import { KeyboardAvoidingView, Platform, ScrollView, Text, View } from 'react-native';
 
 import { ScopePicker } from '@/features/auth/components/ScopePicker';
-import { UniversityBadge } from '@/features/auth/components/UniversityBadge';
 import { useUpdateProfile } from '@/features/auth/hooks/useAuthMutations';
 import { useSession } from '@/features/auth/hooks/useSession';
 import { detectUniversityFromEmail } from '@/features/auth/lib/universities';
@@ -57,18 +56,26 @@ export default function ProfileSetupScreen() {
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         style={{ flex: 1 }}
       >
-        <ScrollView contentContainerStyle={{ flexGrow: 1, paddingHorizontal: 24, paddingTop: 32, paddingBottom: 40 }}>
-          <Text className="text-xs font-sans-semibold uppercase tracking-[0.18em] text-text-tertiary">
+        <ScrollView
+          contentContainerStyle={{
+            flexGrow: 1,
+            paddingHorizontal: 24,
+            paddingTop: 32,
+            paddingBottom: 40,
+          }}
+          keyboardShouldPersistTaps="handled"
+        >
+          <Text className="text-[11px] font-sans-semibold uppercase tracking-[0.2em] text-text-tertiary">
             Último paso
           </Text>
-          <Text className="mt-2 text-3xl font-sans-black text-text-primary">
+          <Text className="mt-2 text-[32px] font-sans-black text-text-primary leading-[36px]">
             Cuéntanos quién eres
           </Text>
-          <Text className="mt-3 text-base text-text-secondary font-sans">
+          <Text className="mt-3 text-[15px] text-text-secondary font-sans leading-[22px]">
             Esto es lo que ven otros usuarios cuando apareces en un match.
           </Text>
 
-          <View className="mt-8 gap-5">
+          <View className="mt-10">
             <Input
               label="Nombre completo"
               placeholder="ej. María Pérez"
@@ -78,19 +85,34 @@ export default function ProfileSetupScreen() {
               value={displayName}
               onChangeText={setDisplayName}
             />
+          </View>
 
-            <View>
-              <Text className="mb-2 text-[11px] font-sans-semibold uppercase tracking-[0.15em] text-text-tertiary">
-                Tu correo institucional
+          <View className="mt-7">
+            <Text className="mb-2 text-[11px] font-sans-semibold uppercase tracking-[0.18em] text-text-tertiary">
+              Tu correo
+            </Text>
+            <View className="flex-row items-baseline">
+              <Text
+                className="flex-1 text-[16px] font-sans text-text-primary"
+                numberOfLines={1}
+              >
+                {user?.email}
               </Text>
-              <View className="rounded-lg border border-border bg-surface px-4 py-3">
-                <Text className="font-sans text-text-primary">{user?.email}</Text>
-              </View>
-              <Text className="mt-2 text-xs text-text-tertiary font-sans">
-                Tu universidad se detecta del dominio del correo y no se puede editar.
-              </Text>
+              {detectedUni && (
+                <Text
+                  className="ml-3 text-[13px] font-sans-bold"
+                  style={{ color: detectedUni.color, letterSpacing: 0.3 }}
+                >
+                  {detectedUni.short}
+                </Text>
+              )}
             </View>
+            <Text className="mt-1.5 text-[12px] text-text-tertiary font-sans">
+              Tu universidad se detecta automáticamente del dominio.
+            </Text>
+          </View>
 
+          <View className="mt-9">
             <ScopePicker
               ownUniversity={detectedUni}
               value={scopeIds}
@@ -98,7 +120,7 @@ export default function ProfileSetupScreen() {
             />
           </View>
 
-          <View className="mt-8">
+          <View className="mt-10">
             <Button
               label="Empezar"
               size="lg"

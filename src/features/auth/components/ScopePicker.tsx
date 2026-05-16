@@ -1,26 +1,25 @@
-import { Pressable, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { cn } from '@/shared/utils/cn';
+import { useTheme } from '@/theme/ThemeProvider';
 
 import { universities, type University } from '../lib/universities';
 
 type Props = {
-  /** ID de la universidad propia del usuario; siempre incluida en el scope. */
   ownUniversity: University | null;
-  /** Lista actual de universidades elegidas (incluye la propia). */
   value: string[];
-  /** Devuelve la nueva lista (incluye la propia siempre). */
   onChange: (next: string[]) => void;
 };
 
 /**
- * UI limpia para elegir el "scope" de universidades con las que el usuario
- * quiere ver matches. La propia universidad está fija arriba y no se puede
- * deseleccionar (se garantiza siempre presente en el array).
+ * Selector minimalista al estilo iOS Settings / Linear:
+ *   - Sin cajas con borde
+ *   - Sección con label uppercase + hairlines (1px) entre filas
+ *   - Selección con un check sutil del color de la uni
+ *   - La universidad propia está siempre presente y no se puede quitar
  */
 export function ScopePicker({ ownUniversity, value, onChange }: Props) {
   const toggle = (id: string) => {
-    if (ownUniversity?.id === id) return; // la propia es obligatoria
+    if (ownUniversity?.id === id) return;
     const next = value.includes(id) ? value.filter((x) => x !== id) : [...value, id];
     onChange(next);
   };
@@ -30,112 +29,103 @@ export function ScopePicker({ ownUniversity, value, onChange }: Props) {
   return (
     <View>
       {ownUniversity && (
-        <View className="mb-5">
-          <Text className="mb-2 text-[11px] font-sans-semibold uppercase tracking-[0.15em] text-text-tertiary">
-            Tu universidad
-          </Text>
-          <View
-            className="flex-row items-center gap-3 rounded-lg border bg-surface px-4 py-3"
-            style={{ borderColor: ownUniversity.color, borderLeftWidth: 4 }}
-          >
-            <View
-              style={{
-                width: 36,
-                height: 36,
-                borderRadius: 18,
-                alignItems: 'center',
-                justifyContent: 'center',
-                backgroundColor: `${ownUniversity.color}1F`,
-              }}
-            >
-              <Text className="font-sans-bold text-[12px]" style={{ color: ownUniversity.color }}>
-                {ownUniversity.short}
-              </Text>
-            </View>
-            <View className="flex-1">
-              <Text className="font-sans-bold text-text-primary text-base">
-                {ownUniversity.name}
-              </Text>
-              <Text className="font-sans text-xs text-text-tertiary">
-                Tu identidad en la app · No se puede quitar
-              </Text>
-            </View>
-          </View>
+        <View className="mb-7">
+          <SectionLabel>Tu universidad</SectionLabel>
+          <Row
+            uni={ownUniversity}
+            selected
+            locked
+            isLast
+          />
         </View>
       )}
 
-      <Text className="mb-2 text-[11px] font-sans-semibold uppercase tracking-[0.15em] text-text-tertiary">
-        También quiero intercambiar con
-      </Text>
-      <View className="rounded-lg border border-border bg-surface-elev">
-        {others.map((u, i) => {
-          const isOn = value.includes(u.id);
-          const isLast = i === others.length - 1;
-          return (
-            <Pressable
-              key={u.id}
-              onPress={() => toggle(u.id)}
-              className={cn(
-                'flex-row items-center gap-3 px-4 py-3',
-                !isLast && 'border-b border-border',
-              )}
-            >
-              <View
-                style={{
-                  width: 32,
-                  height: 32,
-                  borderRadius: 16,
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  backgroundColor: isOn ? u.color : `${u.color}1F`,
-                }}
-              >
-                <Text
-                  className="font-sans-bold text-[11px]"
-                  style={{ color: isOn ? '#FFFFFF' : u.color }}
-                >
-                  {u.short}
-                </Text>
-              </View>
-              <View className="flex-1">
-                <Text
-                  className={cn(
-                    'font-sans-semibold text-[15px]',
-                    isOn ? 'text-text-primary' : 'text-text-secondary',
-                  )}
-                  numberOfLines={1}
-                >
-                  {u.name}
-                </Text>
-              </View>
-              <Checkbox checked={isOn} accent={u.color} />
-            </Pressable>
-          );
-        })}
+      <View>
+        <SectionLabel>También quiero ver</SectionLabel>
+        {others.map((u, i) => (
+          <Row
+            key={u.id}
+            uni={u}
+            selected={value.includes(u.id)}
+            isLast={i === others.length - 1}
+            onPress={() => toggle(u.id)}
+          />
+        ))}
       </View>
     </View>
   );
 }
 
-function Checkbox({ checked, accent }: { checked: boolean; accent: string }) {
+function SectionLabel({ children }: { children: React.ReactNode }) {
   return (
+    <Text className="mb-2 text-[11px] font-sans-semibold uppercase tracking-[0.18em] text-text-tertiary">
+      {children}
+    </Text>
+  );
+}
+
+type RowProps = {
+  uni: University;
+  selected: boolean;
+  locked?: boolean;
+  isLast: boolean;
+  onPress?: () => void;
+};
+
+function Row({ uni, selected, locked, isLast, onPress }: RowProps) {
+  const { colors } = useTheme();
+  const accent = selected ? uni.color : colors.textTertiary;
+
+  const inner = (
     <View
       style={{
-        width: 22,
-        height: 22,
-        borderRadius: 6,
-        borderWidth: 1.5,
-        borderColor: checked ? accent : '#D1D1D6',
-        backgroundColor: checked ? accent : 'transparent',
+        flexDirection: 'row',
         alignItems: 'center',
-        justifyContent: 'center',
+        paddingVertical: 14,
+        borderBottomWidth: isLast ? 0 : StyleSheet.hairlineWidth,
+        borderBottomColor: colors.border,
       }}
     >
-      {checked && (
-        <Text className="text-white text-[14px]" style={{ lineHeight: 14, marginTop: -2 }}>
-          ✓
+      <Text
+        style={{
+          minWidth: 52,
+          fontSize: 13,
+          fontWeight: '700',
+          color: uni.color,
+          letterSpacing: 0.3,
+        }}
+      >
+        {uni.short}
+      </Text>
+      <Text
+        style={{
+          flex: 1,
+          fontSize: 15,
+          color: colors.textPrimary,
+        }}
+        numberOfLines={1}
+      >
+        {uni.name}
+      </Text>
+      {locked ? (
+        <Text
+          style={{
+            fontSize: 12,
+            fontWeight: '500',
+            color: colors.textTertiary,
+            letterSpacing: 0.2,
+          }}
+        >
+          Predeterminada
+        </Text>
+      ) : (
+        <Text style={{ fontSize: 18, color: accent, fontWeight: '600' }}>
+          {selected ? '✓' : ''}
         </Text>
       )}
     </View>
   );
+
+  if (locked || !onPress) return inner;
+  return <Pressable onPress={onPress}>{inner}</Pressable>;
 }
