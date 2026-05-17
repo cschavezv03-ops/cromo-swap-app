@@ -314,6 +314,26 @@ export type Database = {
         Returns: string;
       };
       fn_create_purchase_request: { Args: { p_listing_id: string }; Returns: string };
+      fn_create_auction_listing: {
+        Args: {
+          p_cromo_id: string;
+          p_start_price: number;
+          p_duration_hours: number;
+          p_bid_increment?: number;
+          p_buy_now_price?: number | null;
+          p_is_public?: boolean;
+          p_scope_universities?: string[];
+          p_description?: string | null;
+        };
+        Returns: string;
+      };
+      fn_place_bid: {
+        Args: { p_listing_id: string; p_amount: number };
+        Returns: string;
+      };
+      fn_close_auction: { Args: { p_listing_id: string }; Returns: string | null };
+      fn_pause_listing: { Args: { p_listing_id: string }; Returns: undefined };
+      fn_resume_listing: { Args: { p_listing_id: string }; Returns: undefined };
       fn_propose_match: {
         Args: {
           p_get_count?: number;
