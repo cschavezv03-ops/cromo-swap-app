@@ -1,6 +1,8 @@
 import { Component, type ReactNode } from 'react';
 import { Pressable, Text, View } from 'react-native';
 
+import { captureException } from '@/lib/observability';
+
 type Props = {
   children: ReactNode;
   fallback?: (err: Error, reset: () => void) => ReactNode;
@@ -20,10 +22,7 @@ export class ErrorBoundary extends Component<Props, State> {
   }
 
   override componentDidCatch(error: Error): void {
-    if (__DEV__) {
-      // eslint-disable-next-line no-console
-      console.error('[ErrorBoundary]', error);
-    }
+    captureException(error, { boundary: 'render' });
   }
 
   reset = (): void => {

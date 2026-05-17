@@ -111,6 +111,34 @@ export function useSetOwned() {
   });
 }
 
+export function useToggleWanted() {
+  const qc = useQueryClient();
+  return useMutation<unknown, Error, { cromoId: string; delta: number }, RollbackCtx>({
+    mutationFn: async ({ cromoId, delta }) => {
+      void Haptics.selectionAsync();
+      return applyInventoryDelta({ cromo_id: cromoId, delta_wanted: delta });
+    },
+    onMutate: async ({ cromoId, delta }) => {
+      await qc.cancelQueries({ queryKey: albumQueryKey });
+      const prev = qc.getQueryData<AlbumData>(albumQueryKey);
+      if (prev) {
+        qc.setQueryData<AlbumData>(
+          albumQueryKey,
+          patchAlbumCromo(prev, cromoId, (c) => ({
+            ...c,
+            wanted: Math.max(0, c.wanted + delta),
+            dirty: true,
+          })),
+        );
+      }
+      return { prev };
+    },
+    onError: (_err, _vars, context) => {
+      if (context?.prev) qc.setQueryData(albumQueryKey, context.prev);
+    },
+  });
+}
+
 export function useMarkPasted() {
   const qc = useQueryClient();
   return useMutation<unknown, Error, string, RollbackCtx>({

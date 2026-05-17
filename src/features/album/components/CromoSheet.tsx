@@ -10,6 +10,7 @@ import {
   useDecrementOwned,
   useIncrementOwned,
   useSetOwned,
+  useToggleWanted,
 } from '../hooks/useInventoryMutation';
 import type { AlbumCromo, CountryMeta } from '../lib/types';
 
@@ -29,6 +30,7 @@ export const CromoSheet = forwardRef<CromoSheetHandle>(function CromoSheet(_, re
   const inc = useIncrementOwned();
   const dec = useDecrementOwned();
   const setOwned = useSetOwned();
+  const toggleWanted = useToggleWanted();
   const { data: album } = useAlbumData();
 
   // Indexamos por id una sola vez por render del album; lookup en O(1) por sheet open.
@@ -126,6 +128,39 @@ export const CromoSheet = forwardRef<CromoSheetHandle>(function CromoSheet(_, re
               </View>
             </View>
           </View>
+
+          {cromo.owned >= 1 && (
+            <View className="mt-4 rounded-lg bg-surface p-4">
+              <View className="flex-row items-center justify-between">
+                <View className="flex-1 pr-3">
+                  <Text className="text-[11px] font-sans-semibold uppercase tracking-wider text-text-tertiary">
+                    Lo quiero igual
+                  </Text>
+                  <Text className="mt-1 text-xs font-sans text-text-secondary">
+                    Marca esto si querés otro — para regalar o coleccionar.
+                  </Text>
+                </View>
+                <Pressable
+                  onPress={() =>
+                    toggleWanted.mutate({ cromoId: cromo.id, delta: cromo.wanted > 0 ? -cromo.wanted : 1 })
+                  }
+                  className={cn(
+                    'h-9 min-w-[80px] items-center justify-center rounded-pill px-4',
+                    cromo.wanted > 0 ? 'bg-accent' : 'bg-surface-elev',
+                  )}
+                >
+                  <Text
+                    className={cn(
+                      'text-xs font-sans-semibold',
+                      cromo.wanted > 0 ? 'text-white' : 'text-text-primary',
+                    )}
+                  >
+                    {cromo.wanted > 0 ? `Lo quiero (${cromo.wanted})` : 'Quiero otro'}
+                  </Text>
+                </Pressable>
+              </View>
+            </View>
+          )}
 
           {cromo.owned > 0 && (
             <Pressable

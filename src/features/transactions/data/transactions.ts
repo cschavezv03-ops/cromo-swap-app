@@ -35,7 +35,7 @@ export type TransactionDetail = Tables<'transactions'> & {
 };
 
 export type TransactionListItem = Tables<'transactions'> & {
-  counterparty: Pick<Tables<'profiles'>, 'id' | 'display_name' | 'university'> | null;
+  counterparty: Pick<Tables<'profiles'>, 'id' | 'display_name' | 'university' | 'avatar_url'> | null;
   my_role: 'initiator' | 'owner';
 };
 
@@ -147,7 +147,7 @@ export async function fetchMyTransactions(): Promise<TransactionListItem[]> {
   );
   const { data: profiles, error: pErr } = await supabase
     .from('profiles')
-    .select('id, display_name, university')
+    .select('id, display_name, university, avatar_url')
     .in('id', counterpartyIds);
   if (pErr) throw pErr;
 

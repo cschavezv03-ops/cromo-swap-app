@@ -181,6 +181,18 @@ export default function PerfilTab() {
               hintTone={unreadCount > 0 ? 'accent' : 'normal'}
               onPress={() => router.push('/(app)/(tabs)/avisos')}
               borderColor={colors.border}
+            />
+            <SettingsRow
+              label="Histórico de intercambios"
+              hint="Ver completados y cancelados"
+              onPress={() => router.push('/(app)/transactions/history')}
+              borderColor={colors.border}
+            />
+            <SettingsRow
+              label="Acerca de la app"
+              hint="Versión, términos, soporte"
+              onPress={() => router.push('/(app)/about')}
+              borderColor={colors.border}
               isLast
             />
           </View>
