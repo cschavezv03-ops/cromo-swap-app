@@ -31,6 +31,8 @@ export type CountryMeta = {
   stripe: string;
   accent: string;
   flag_emoji: string;
+  /** Grupo del Mundial (A-L) o null si la sección no es un país. */
+  group_code?: string | null;
 };
 
 export type CountrySectionData = {

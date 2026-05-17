@@ -4,6 +4,7 @@ import { useMemo } from 'react';
 import { loadAllCountries, loadAllCromos } from '../data/catalog';
 import { readAllInventory } from '../data/inventory';
 import { matchesQuery } from '../lib/search';
+import { compareSortKey, SPECIAL_SECTIONS, sectionSortKey } from '../lib/sections';
 import { useFiltersStore } from './useFilters';
 import type {
   AlbumCromo,
@@ -59,7 +60,10 @@ async function buildAlbumData(): Promise<AlbumData> {
     };
   });
 
-  // Group by country (use section_code as fallback for cromos without country_code).
+  // Grupamos por section_code (no por country_code) — eso preserva la
+  // estructura del álbum Panini real: FWC, países, MUSEUM, COCA, EXTRA
+  // son secciones distintas aunque algunos cromos COCA o EXTRA referencien
+  // una country_code (ej. EXTRA 7 = Caicedo ECU, pero va en EXTRA, no en ECU).
   const countryByCode = new Map<string, CountryMeta>(
     countries.map((c) => [
       c.code,
@@ -69,22 +73,29 @@ async function buildAlbumData(): Promise<AlbumData> {
         stripe: c.stripe,
         accent: c.accent,
         flag_emoji: c.flag_emoji,
-      },
+        group_code: (c as { group_code?: string | null }).group_code ?? null,
+      } as CountryMeta,
     ]),
   );
 
   const sectionsMap = new Map<string, CountrySectionData>();
   for (const cromo of enriched) {
-    const code = cromo.country_code ?? cromo.section_code;
+    const code = cromo.section_code;
     let section = sectionsMap.get(code);
     if (!section) {
-      const meta = countryByCode.get(code) ?? {
-        code,
-        name: cromo.section_code,
-        stripe: '#9CA3AF',
-        accent: '#9CA3AF',
-        flag_emoji: '🏳️',
-      };
+      // Prioridad: 1) Especiales hardcoded (FWC/MUSEUM/COCA/EXTRA)
+      //            2) Lookup en tabla countries
+      //            3) Fallback genérico
+      const meta: CountryMeta =
+        SPECIAL_SECTIONS[code] ??
+        countryByCode.get(code) ??
+        {
+          code,
+          name: code,
+          stripe: '#9CA3AF',
+          accent: '#9CA3AF',
+          flag_emoji: '🏳️',
+        };
       section = { country: meta, cromos: [], haveCount: 0, totalCount: 0 };
       sectionsMap.set(code, section);
     }
@@ -93,9 +104,26 @@ async function buildAlbumData(): Promise<AlbumData> {
     if (cromo.status !== 'missing') section.haveCount++;
   }
 
-  const sections = Array.from(sectionsMap.values()).sort((a, b) =>
-    a.country.name.localeCompare(b.country.name),
-  );
+  // Ordenar cromos dentro de cada sección por section_number ASC
+  // (igual que el álbum físico).
+  for (const section of sectionsMap.values()) {
+    section.cromos.sort((a, b) => a.section_number - b.section_number);
+  }
+
+  // Orden Panini canónico: FWC → países (por grupo A-L, nombre) → MUSEUM → COCA → EXTRA.
+  const sections = Array.from(sectionsMap.values()).sort((a, b) => {
+    const ka = sectionSortKey({
+      code: a.country.code,
+      group_code: (a.country as CountryMeta).group_code ?? null,
+      name: a.country.name,
+    });
+    const kb = sectionSortKey({
+      code: b.country.code,
+      group_code: (b.country as CountryMeta).group_code ?? null,
+      name: b.country.name,
+    });
+    return compareSortKey(ka, kb);
+  });
 
   return { sections, stats };
 }

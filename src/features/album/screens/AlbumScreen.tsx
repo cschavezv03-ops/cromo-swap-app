@@ -24,6 +24,7 @@ import { pullRemoteInventory } from '../data/inventory';
 import { albumQueryKey, useFilteredAlbum } from '../hooks/useAlbumData';
 import { useFiltersHydration, useFiltersStore } from '../hooks/useFilters';
 import { useIncrementOwned } from '../hooks/useInventoryMutation';
+import { SPECIAL_SECTIONS, SPECIAL_SECTION_HINTS } from '../lib/sections';
 import type {
   AlbumCromo,
   CountryMeta,
@@ -274,10 +275,14 @@ function EmptyStateView({
   );
 }
 
-/** Header de sección por país — memo para evitar re-renders innecesarios. */
+/** Header de sección — sirve tanto para países como para FWC/MUSEUM/COCA/EXTRA. */
 const CountryHeader = ({ section }: { section: CountrySectionData }) => {
   const { country, haveCount, totalCount } = section;
   const pct = totalCount === 0 ? 0 : haveCount / totalCount;
+  const hint = SPECIAL_SECTION_HINTS[country.code];
+  const subtitleLeft = country.group_code
+    ? `Grupo ${country.group_code}`
+    : (hint ?? country.code);
   return (
     <View
       style={{
@@ -294,7 +299,7 @@ const CountryHeader = ({ section }: { section: CountrySectionData }) => {
             {country.name}
           </Text>
           <Text className="text-xs font-sans-medium text-text-tertiary">
-            {country.code} · {haveCount}/{totalCount}
+            {subtitleLeft} · {haveCount}/{totalCount}
           </Text>
         </View>
       </View>

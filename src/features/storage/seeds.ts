@@ -132,6 +132,18 @@ export async function ensureCatalogSeeded(): Promise<number> {
     }
   });
 
+  // Al cambiar de versión, limpiamos inventory_local de cromos que ya no
+  // existen en el catálogo nuevo (huérfanos por wipe de v1 o por cromos
+  // que el server eliminó). Sin esto, el álbum mostraba badges en cromos
+  // muertos y el sync fallaba en FK.
+  await db.execAsync(`
+    DELETE FROM inventory_local
+    WHERE cromo_id NOT IN (SELECT id FROM catalog_cromos_local);
+
+    DELETE FROM sync_queue
+    WHERE cromo_id NOT IN (SELECT id FROM catalog_cromos_local);
+  `);
+
   kv.set(KvKey.catalogVersion, String(data.catalog_version));
   kv.set('catalog.generatedAt', data.generated_at);
 
