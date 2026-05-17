@@ -13,6 +13,8 @@ import {
 } from '../hooks/useInventoryMutation';
 import type { AlbumCromo, CountryMeta } from '../lib/types';
 
+import { SectionMark } from './SectionMark';
+
 export type CromoSheetHandle = {
   present: (cromo: AlbumCromo, country: CountryMeta | null) => void;
   dismiss: () => void;
@@ -72,8 +74,11 @@ export const CromoSheet = forwardRef<CromoSheetHandle>(function CromoSheet(_, re
               className="flex-row items-center gap-2 self-start rounded-pill px-3 py-1"
               style={{ backgroundColor: `${country.stripe}22` }}
             >
-              <Text>{country.flag_emoji}</Text>
-              <Text className="text-xs font-sans-semibold" style={{ color: country.accent }}>
+              <SectionMark country={country} size="sm" />
+              <Text
+                className="text-xs font-sans-semibold"
+                style={{ color: country.stripe }}
+              >
                 {country.name}
               </Text>
             </View>

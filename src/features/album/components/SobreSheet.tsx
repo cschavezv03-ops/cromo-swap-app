@@ -17,6 +17,7 @@ import { loadAllCountries } from '../data/catalog';
 import { useBulkAddSobre } from '../hooks/useInventoryMutation';
 import { catalogMatchesQuery, normalize } from '../lib/search';
 import { SearchBar } from './SearchBar';
+import { SectionMark } from './SectionMark';
 
 export type SobreSheetHandle = {
   present: () => void;
@@ -344,8 +345,19 @@ function CountryMode({
 
           {countryMeta && (
             <View className="mt-4 flex-row items-center gap-2">
-              <Text className="text-2xl">{countryMeta.flag_emoji}</Text>
-              <Text className="text-base font-sans-bold text-text-primary">{countryMeta.name}</Text>
+              <SectionMark
+                country={{
+                  code: countryMeta.code,
+                  name: countryMeta.name,
+                  stripe: countryMeta.stripe,
+                  accent: countryMeta.accent,
+                  flag_emoji: '',
+                }}
+                size="md"
+              />
+              <Text className="text-base font-sans-bold text-text-primary">
+                {countryMeta.name}
+              </Text>
             </View>
           )}
         </View>

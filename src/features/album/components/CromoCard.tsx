@@ -6,6 +6,8 @@ import { useTheme } from '@/theme/ThemeProvider';
 
 import type { AlbumCromo, CountryMeta } from '../lib/types';
 
+import { SectionMark } from './SectionMark';
+
 type Props = {
   cromo: AlbumCromo;
   country: CountryMeta | null;
@@ -59,11 +61,7 @@ function CromoCardComponent({ cromo, country, onPress, onLongPress }: Props) {
           >
             {cromo.printed_code}
           </Text>
-          {country && (
-            <Text className="text-xs" numberOfLines={1}>
-              {country.flag_emoji}
-            </Text>
-          )}
+          {country && <SectionMark country={country} size="sm" />}
         </View>
 
         {!isMissing && (
