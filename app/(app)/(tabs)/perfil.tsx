@@ -147,6 +147,12 @@ export default function PerfilTab() {
               borderColor={colors.border}
             />
             <SettingsRow
+              label="Buscar personas"
+              hint="Por nombre o universidad"
+              onPress={() => router.push('/(app)/search')}
+              borderColor={colors.border}
+            />
+            <SettingsRow
               label="Amigos"
               hint={
                 pendingInCount > 0

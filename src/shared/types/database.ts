@@ -403,6 +403,17 @@ export type Database = {
           owned_quantity: number;
         }>;
       };
+      fn_get_user_card: {
+        Args: { p_user_id: string };
+        Returns: Array<{
+          id: string;
+          display_name: string;
+          university: string | null;
+          album_pct: number | null;
+          avatar_url: string | null;
+          is_friend: boolean;
+        }>;
+      };
     };
   };
 };
