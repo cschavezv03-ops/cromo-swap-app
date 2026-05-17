@@ -4,6 +4,8 @@ import { Pressable, ScrollView, Text, View } from 'react-native';
 
 import { universitiesById } from '@/features/auth/lib/universities';
 import { useSession } from '@/features/auth/hooks/useSession';
+import { FriendButton } from '@/features/friends/components/FriendButton';
+import { useFriendshipStatus } from '@/features/friends/hooks/useFriends';
 import {
   BlockSheet,
   type BlockSheetHandle,
@@ -21,6 +23,7 @@ export default function OtherProfileScreen() {
 
   const other = useOtherProfile(id);
   const blocked = useIsBlocked(id);
+  const friendship = useFriendshipStatus(id);
   const unblock = useUnblockUser();
 
   const isSelf = user?.id === id;
@@ -28,6 +31,7 @@ export default function OtherProfileScreen() {
   const stats = other.data?.inventory_stats;
   const albumPct = stats && stats.total > 0 ? (stats.have + stats.repeated) / stats.total : 0;
   const uni = profile?.university ? universitiesById[profile.university] : null;
+  const isFriend = friendship.data?.status === 'friends';
 
   const handleUnblock = async () => {
     if (!id) return;
@@ -72,6 +76,7 @@ export default function OtherProfileScreen() {
 
         {profile && (
           <>
+            {/* Encabezado: avatar + nombre + uni — visible siempre */}
             <Card variant="elevated">
               <View className="flex-row items-center gap-4">
                 <View className="h-16 w-16 items-center justify-center rounded-pill bg-surface">
@@ -91,10 +96,18 @@ export default function OtherProfileScreen() {
                       {uni.short} · {uni.name}
                     </Text>
                   )}
+                  {isFriend && (
+                    <View className="mt-1 flex-row items-center">
+                      <Text className="text-xs font-sans-semibold text-success">
+                        ✓ Amigos
+                      </Text>
+                    </View>
+                  )}
                 </View>
               </View>
             </Card>
 
+            {/* Álbum: % siempre visible, breakdown solo a amigos */}
             <Card variant="elevated">
               <View className="flex-row items-center gap-4">
                 <ProgressRing value={albumPct} size={56} />
@@ -105,25 +118,34 @@ export default function OtherProfileScreen() {
                   <Text className="mt-1 text-2xl font-sans-bold text-text-primary">
                     {Math.round(albumPct * 100)}%
                   </Text>
-                  <Text className="text-xs text-text-secondary font-sans">
-                    {stats?.have ?? 0} tiene · {stats?.repeated ?? 0} repetidos ·{' '}
-                    {stats?.missing ?? 0} faltantes
-                  </Text>
+                  {isFriend ? (
+                    <Text className="text-xs text-text-secondary font-sans">
+                      {stats?.have ?? 0} tiene · {stats?.repeated ?? 0} repetidos ·{' '}
+                      {stats?.missing ?? 0} faltan
+                    </Text>
+                  ) : (
+                    <Text className="text-xs text-text-tertiary font-sans">
+                      Agrégalo como amigo para ver sus repetidos y faltantes.
+                    </Text>
+                  )}
                 </View>
               </View>
             </Card>
 
+            {/* Acciones */}
             {!isSelf && !blocked.data && (
               <View className="gap-2">
+                <FriendButton targetUserId={id!} />
                 <Button
                   label="Proponer intercambio"
+                  variant={isFriend ? 'primary' : 'secondary'}
                   onPress={() =>
                     router.push({ pathname: '/(app)/match/[id]', params: { id } })
                   }
                 />
                 <Button
                   label="Bloquear"
-                  variant="secondary"
+                  variant="ghost"
                   onPress={() => blockSheet.current?.present(id!, profile.display_name)}
                 />
               </View>

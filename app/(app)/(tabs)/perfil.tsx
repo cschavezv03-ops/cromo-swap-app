@@ -7,6 +7,7 @@ import { useSignOut } from '@/features/auth/hooks/useAuthMutations';
 import { useProfile } from '@/features/auth/hooks/useProfile';
 import { useSession } from '@/features/auth/hooks/useSession';
 import { universitiesById } from '@/features/auth/lib/universities';
+import { useMyFriends, usePendingIn } from '@/features/friends/hooks/useFriends';
 import { useMyListings } from '@/features/marketplace/hooks/useListings';
 import { useMyBlocks } from '@/features/profile/hooks/useBlocks';
 import { useMyWhatsApp } from '@/features/profile/hooks/useWhatsApp';
@@ -27,12 +28,16 @@ export default function PerfilTab() {
   const blocks = useMyBlocks();
   const whatsapp = useMyWhatsApp();
   const myListings = useMyListings();
+  const friends = useMyFriends();
+  const pendingIn = usePendingIn();
   const unreadCount = useUnreadNotificationsCount();
   const signOut = useSignOut();
 
   const uni = profile?.university ? universitiesById[profile.university] : null;
   const albumPct = (profile?.album_pct ?? 0) / 100;
   const blocksCount = blocks.data?.length ?? 0;
+  const friendsCount = friends.data?.length ?? 0;
+  const pendingInCount = pendingIn.data?.length ?? 0;
   const myListingsCount = (myListings.data ?? []).filter(
     (l) => l.status === 'active' || l.status === 'reserved',
   ).length;
@@ -139,6 +144,19 @@ export default function PerfilTab() {
               hint={whatsapp.data?.whatsapp_phone ?? 'No configurado'}
               hintTone={whatsapp.data?.whatsapp_phone ? 'normal' : 'warning'}
               onPress={() => whatsappPrompt.current?.present()}
+              borderColor={colors.border}
+            />
+            <SettingsRow
+              label="Amigos"
+              hint={
+                pendingInCount > 0
+                  ? `${friendsCount} · ${pendingInCount} solicitud${pendingInCount === 1 ? '' : 'es'}`
+                  : friendsCount === 0
+                    ? 'Sin amigos'
+                    : `${friendsCount} amigo${friendsCount === 1 ? '' : 's'}`
+              }
+              hintTone={pendingInCount > 0 ? 'accent' : 'normal'}
+              onPress={() => router.push('/(app)/friends')}
               borderColor={colors.border}
             />
             <SettingsRow

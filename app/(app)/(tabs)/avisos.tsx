@@ -30,9 +30,11 @@ export default function AvisosTab() {
   const handleTap = (id: string, kind: string, payload: NotificationPayload) => {
     if (!items.find((n) => n.id === id)?.read) markOne.mutate(id);
 
+    if (kind.startsWith('friend')) {
+      router.push({ pathname: '/(app)/friends' });
+      return;
+    }
     if (kind.startsWith('match') && payload.match_id) {
-      // El match referencia counterparty_id en el reason del row de matches;
-      // de momento navegamos al match detail por counterparty si lo tenemos.
       if (payload.counterparty_id) {
         router.push({ pathname: '/(app)/match/[id]', params: { id: payload.counterparty_id } });
       }

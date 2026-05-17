@@ -65,6 +65,18 @@ function describe(notification: Notification): { Icon: IconCmp; title: string; s
         title: 'Intercambio cancelado',
         subtitle: `${name} canceló o no se completó.`,
       };
+    case 'friend_request':
+      return {
+        Icon: SparkleIcon,
+        title: 'Nueva solicitud de amistad',
+        subtitle: `${name} quiere ser tu amigo.`,
+      };
+    case 'friend_accepted':
+      return {
+        Icon: CheckIcon,
+        title: 'Solicitud aceptada',
+        subtitle: `${name} aceptó tu solicitud.`,
+      };
     default:
       return {
         Icon: MailIcon,

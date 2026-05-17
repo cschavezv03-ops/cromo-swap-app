@@ -40,6 +40,25 @@ export type Database = {
         Insert: { blocked_id: string; blocker_id: string; created_at?: string; id?: string };
         Update: { blocked_id?: string; blocker_id?: string; created_at?: string; id?: string };
       };
+      friendships: {
+        Row: {
+          id: string;
+          requester_id: string;
+          addressee_id: string;
+          status: string;
+          created_at: string;
+          responded_at: string | null;
+        };
+        Insert: {
+          id?: string;
+          requester_id: string;
+          addressee_id: string;
+          status?: string;
+          created_at?: string;
+          responded_at?: string | null;
+        };
+        Update: Partial<Database['public']['Tables']['friendships']['Row']>;
+      };
       catalog_cromos: {
         Row: {
           catalog_version: number;
