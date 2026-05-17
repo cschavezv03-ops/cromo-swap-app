@@ -7,6 +7,7 @@ import { useSignOut } from '@/features/auth/hooks/useAuthMutations';
 import { useProfile } from '@/features/auth/hooks/useProfile';
 import { useSession } from '@/features/auth/hooks/useSession';
 import { universitiesById } from '@/features/auth/lib/universities';
+import { useMyListings } from '@/features/marketplace/hooks/useListings';
 import { useMyBlocks } from '@/features/profile/hooks/useBlocks';
 import { useMyWhatsApp } from '@/features/profile/hooks/useWhatsApp';
 import {
@@ -25,12 +26,16 @@ export default function PerfilTab() {
   const { data: profile } = useProfile();
   const blocks = useMyBlocks();
   const whatsapp = useMyWhatsApp();
+  const myListings = useMyListings();
   const unreadCount = useUnreadNotificationsCount();
   const signOut = useSignOut();
 
   const uni = profile?.university ? universitiesById[profile.university] : null;
   const albumPct = (profile?.album_pct ?? 0) / 100;
   const blocksCount = blocks.data?.length ?? 0;
+  const myListingsCount = (myListings.data ?? []).filter(
+    (l) => l.status === 'active' || l.status === 'reserved',
+  ).length;
   const whatsappPrompt = useRef<WhatsAppPromptHandle>(null);
 
   const handleSignOut = async () => {
@@ -134,6 +139,16 @@ export default function PerfilTab() {
               hint={whatsapp.data?.whatsapp_phone ?? 'No configurado'}
               hintTone={whatsapp.data?.whatsapp_phone ? 'normal' : 'warning'}
               onPress={() => whatsappPrompt.current?.present()}
+              borderColor={colors.border}
+            />
+            <SettingsRow
+              label="Mis publicaciones"
+              hint={
+                myListingsCount === 0
+                  ? 'Sin publicaciones activas'
+                  : `${myListingsCount} activa${myListingsCount === 1 ? '' : 's'}`
+              }
+              onPress={() => router.push('/(app)/listings/mine')}
               borderColor={colors.border}
             />
             <SettingsRow
