@@ -2,6 +2,7 @@ export { Button } from './Button';
 export { Card, PressableCard } from './Card';
 export { Chip } from './Chip';
 export { EmptyState } from './EmptyState';
+export { ErrorBoundary } from './ErrorBoundary';
 export { FlagDot } from './FlagDot';
 export { Input } from './Input';
 export { OtpInput } from './OtpInput';

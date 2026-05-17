@@ -29,15 +29,17 @@ export const CromoSheet = forwardRef<CromoSheetHandle>(function CromoSheet(_, re
   const setOwned = useSetOwned();
   const { data: album } = useAlbumData();
 
-  const cromo = useMemo<AlbumCromo | null>(() => {
-    if (!cromoId || !album) return null;
+  // Indexamos por id una sola vez por render del album; lookup en O(1) por sheet open.
+  const byId = useMemo(() => {
+    const m = new Map<string, AlbumCromo>();
+    if (!album) return m;
     for (const s of album.sections) {
-      for (const c of s.cromos) {
-        if (c.id === cromoId) return c;
-      }
+      for (const c of s.cromos) m.set(c.id, c);
     }
-    return null;
-  }, [cromoId, album]);
+    return m;
+  }, [album]);
+
+  const cromo = cromoId ? (byId.get(cromoId) ?? null) : null;
 
   useImperativeHandle(ref, () => ({
     present: (c, ctry) => {

@@ -16,6 +16,7 @@ import { kv } from '@/features/storage/kv';
 import { ensureCatalogSeeded } from '@/features/storage/seeds';
 import { installSyncListener } from '@/features/storage/sync';
 import { ThemeProvider, useTheme } from '@/theme/ThemeProvider';
+import { ErrorBoundary } from '@/ui/ErrorBoundary';
 import { ToastProvider } from '@/ui/Toast';
 
 export default function RootLayout() {
@@ -29,9 +30,11 @@ export default function RootLayout() {
           >
             <BottomSheetModalProvider>
               <ToastProvider>
-                <AppBoot>
-                  <ThemedStack />
-                </AppBoot>
+                <ErrorBoundary>
+                  <AppBoot>
+                    <ThemedStack />
+                  </AppBoot>
+                </ErrorBoundary>
               </ToastProvider>
             </BottomSheetModalProvider>
           </PersistQueryClientProvider>

@@ -1,38 +1,64 @@
+import { FlashList, type ListRenderItem } from '@shopify/flash-list';
 import { useCallback, useEffect, useMemo, useRef } from 'react';
 import {
   Dimensions,
   Pressable,
   RefreshControl,
-  ScrollView,
+  StyleSheet,
   Text,
   View,
 } from 'react-native';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 
-import { useProfile } from '@/features/auth/hooks/useProfile';
-import { Button, Screen, ScreenHeader, useToast } from '@/ui';
+import { Button, ProgressBar, Screen, ScreenHeader, useToast } from '@/ui';
+import { useTheme } from '@/theme/ThemeProvider';
 
 import { CountryChips } from '../components/CountryChips';
-import { CountrySection } from '../components/CountrySection';
+import { CromoCard } from '../components/CromoCard';
 import { CromoSheet, type CromoSheetHandle } from '../components/CromoSheet';
 import { FilterTabs } from '../components/FilterTabs';
 import { SobreSheet, type SobreSheetHandle } from '../components/SobreSheet';
 import { loadAllCountries } from '../data/catalog';
 import { pullRemoteInventory } from '../data/inventory';
-import {
-  albumQueryKey,
-  useFilteredAlbum,
-} from '../hooks/useAlbumData';
-import {
-  useFiltersHydration,
-  useFiltersStore,
-} from '../hooks/useFilters';
+import { albumQueryKey, useFilteredAlbum } from '../hooks/useAlbumData';
+import { useFiltersHydration, useFiltersStore } from '../hooks/useFilters';
 import { useIncrementOwned } from '../hooks/useInventoryMutation';
-import type { AlbumCromo, CountryMeta } from '../lib/types';
+import type {
+  AlbumCromo,
+  CountryMeta,
+  CountrySectionData,
+} from '../lib/types';
 
 const SCREEN_PADDING = 20;
-const COLUMNS = 4;
-const GAP = 8;
+const COLS = 4;
+const CARD_GAP = 8;
+const ROW_VERTICAL_GAP = 8;
+const HEADER_HEIGHT = 52;
+
+type ListItem =
+  | { type: 'header'; key: string; section: CountrySectionData }
+  | {
+      type: 'row';
+      key: string;
+      country: CountryMeta;
+      cromos: AlbumCromo[];
+    };
+
+function flattenSections(sections: CountrySectionData[]): ListItem[] {
+  const items: ListItem[] = [];
+  for (const s of sections) {
+    items.push({ type: 'header', key: `h-${s.country.code}`, section: s });
+    for (let i = 0; i < s.cromos.length; i += COLS) {
+      items.push({
+        type: 'row',
+        key: `r-${s.country.code}-${i}`,
+        country: s.country,
+        cromos: s.cromos.slice(i, i + COLS),
+      });
+    }
+  }
+  return items;
+}
 
 export function AlbumScreen() {
   const toast = useToast();
@@ -44,14 +70,12 @@ export function AlbumScreen() {
   const clearCountries = useFiltersStore((s) => s.clearCountries);
 
   const { sections, stats, isLoading } = useFilteredAlbum();
-  const { data: profile } = useProfile();
   const cromoSheetRef = useRef<CromoSheetHandle>(null);
   const sobreSheetRef = useRef<SobreSheetHandle>(null);
   const inc = useIncrementOwned();
   const qc = useQueryClient();
 
-  // Countries list comes from local SQLite directly (does not depend on filters).
-  const { data: countries = [] } = useQuery({
+  const countriesQ = useQuery({
     queryKey: ['album', 'countries'],
     queryFn: async (): Promise<CountryMeta[]> => {
       const rows = await loadAllCountries();
@@ -65,8 +89,8 @@ export function AlbumScreen() {
     },
     staleTime: 1000 * 60 * 60,
   });
+  const countries = countriesQ.data ?? [];
 
-  // On first mount, try to pull remote inventory into local (best-effort).
   useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -76,7 +100,7 @@ export function AlbumScreen() {
           void qc.invalidateQueries({ queryKey: albumQueryKey });
         }
       } catch {
-        // offline / no session — fine
+        /* offline o sin sesión */
       }
     })();
     return () => {
@@ -85,9 +109,16 @@ export function AlbumScreen() {
   }, [qc]);
 
   const cardWidth = useMemo(() => {
-    const w = Dimensions.get('window').width - SCREEN_PADDING * 2 - GAP * (COLUMNS - 1);
-    return Math.floor(w / COLUMNS);
+    const w = Dimensions.get('window').width - SCREEN_PADDING * 2 - CARD_GAP * (COLS - 1);
+    return Math.floor(w / COLS);
   }, []);
+
+  // Lookup O(1) por country_code (para CromoSheet).
+  const countryByCode = useMemo(() => {
+    const m = new Map<string, CountryMeta>();
+    for (const c of countries) m.set(c.code, c);
+    return m;
+  }, [countries]);
 
   const handlePressCromo = useCallback(
     (cromo: AlbumCromo) => {
@@ -100,10 +131,14 @@ export function AlbumScreen() {
     [inc, toast],
   );
 
-  const handleLongPress = useCallback((cromo: AlbumCromo) => {
-    const country = countries.find((c) => c.code === cromo.country_code) ?? null;
-    cromoSheetRef.current?.present(cromo, country);
-  }, [countries]);
+  const handleLongPress = useCallback(
+    (cromo: AlbumCromo) => {
+      const country =
+        (cromo.country_code ? countryByCode.get(cromo.country_code) : null) ?? null;
+      cromoSheetRef.current?.present(cromo, country);
+    },
+    [countryByCode],
+  );
 
   const handleRefresh = useCallback(async () => {
     try {
@@ -114,6 +149,29 @@ export function AlbumScreen() {
       toast.show(err instanceof Error ? err.message : 'No se pudo sincronizar.', 'warning');
     }
   }, [qc, toast]);
+
+  const items = useMemo(() => flattenSections(sections), [sections]);
+
+  const renderItem: ListRenderItem<ListItem> = useCallback(
+    ({ item }) => {
+      if (item.type === 'header') {
+        return <CountryHeader section={item.section} />;
+      }
+      return (
+        <CromoRow
+          country={item.country}
+          cromos={item.cromos}
+          cardWidth={cardWidth}
+          onPress={handlePressCromo}
+          onLongPress={handleLongPress}
+        />
+      );
+    },
+    [cardWidth, handlePressCromo, handleLongPress],
+  );
+
+  const getItemType = useCallback((item: ListItem) => item.type, []);
+  const keyExtractor = useCallback((item: ListItem) => item.key, []);
 
   return (
     <Screen edges={['top']}>
@@ -139,46 +197,136 @@ export function AlbumScreen() {
         />
       </View>
 
-      <ScrollView
-        contentContainerStyle={{ paddingHorizontal: SCREEN_PADDING, paddingTop: 8, paddingBottom: 40 }}
-        refreshControl={<RefreshControl refreshing={isLoading} onRefresh={handleRefresh} />}
-      >
-        {sections.length === 0 ? (
-          <View className="mt-16 items-center">
-            <Text className="text-text-secondary text-center font-sans">
-              {isLoading
-                ? 'Cargando tu álbum…'
-                : 'Nada para mostrar con los filtros actuales.'}
-            </Text>
-            {!isLoading && (
-              <Pressable
-                onPress={() => {
-                  setTab('all');
-                  clearCountries();
-                }}
-                className="mt-3 rounded-pill bg-surface px-4 py-2"
-              >
-                <Text className="text-sm font-sans-semibold text-text-primary">
-                  Limpiar filtros
-                </Text>
-              </Pressable>
-            )}
-          </View>
-        ) : (
-          sections.map((section) => (
-            <CountrySection
-              key={section.country.code}
-              section={section}
-              cardWidth={cardWidth}
-              onPressCromo={handlePressCromo}
-              onLongPressCromo={handleLongPress}
-            />
-          ))
-        )}
-      </ScrollView>
+      {items.length === 0 ? (
+        <EmptyStateView
+          isLoading={isLoading}
+          onClear={() => {
+            setTab('all');
+            clearCountries();
+          }}
+        />
+      ) : (
+        <FlashList
+          data={items}
+          renderItem={renderItem}
+          keyExtractor={keyExtractor}
+          getItemType={getItemType}
+          contentContainerStyle={{
+            paddingHorizontal: SCREEN_PADDING,
+            paddingTop: 8,
+            paddingBottom: 40,
+          }}
+          refreshControl={
+            <RefreshControl refreshing={isLoading} onRefresh={handleRefresh} />
+          }
+          drawDistance={500}
+        />
+      )}
 
       <CromoSheet ref={cromoSheetRef} />
       <SobreSheet ref={sobreSheetRef} />
     </Screen>
   );
 }
+
+function EmptyStateView({
+  isLoading,
+  onClear,
+}: {
+  isLoading: boolean;
+  onClear: () => void;
+}) {
+  return (
+    <View className="flex-1 items-center pt-16 px-6">
+      <Text className="text-text-secondary text-center font-sans">
+        {isLoading
+          ? 'Cargando tu álbum…'
+          : 'Nada para mostrar con los filtros actuales.'}
+      </Text>
+      {!isLoading && (
+        <Pressable
+          onPress={onClear}
+          className="mt-3 rounded-pill bg-surface px-4 py-2"
+        >
+          <Text className="text-sm font-sans-semibold text-text-primary">
+            Limpiar filtros
+          </Text>
+        </Pressable>
+      )}
+    </View>
+  );
+}
+
+/** Header de sección por país — memo para evitar re-renders innecesarios. */
+const CountryHeader = ({ section }: { section: CountrySectionData }) => {
+  const { country, haveCount, totalCount } = section;
+  const pct = totalCount === 0 ? 0 : haveCount / totalCount;
+  return (
+    <View
+      style={{
+        height: HEADER_HEIGHT,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+      }}
+    >
+      <View className="flex-row items-center gap-2">
+        <Text className="text-2xl">{country.flag_emoji}</Text>
+        <View>
+          <Text className="text-base font-sans-bold text-text-primary">
+            {country.name}
+          </Text>
+          <Text className="text-xs font-sans-medium text-text-tertiary">
+            {country.code} · {haveCount}/{totalCount}
+          </Text>
+        </View>
+      </View>
+      <View style={{ width: 90 }}>
+        <ProgressBar value={pct} height={4} />
+      </View>
+    </View>
+  );
+};
+
+/** Una fila con N cromos. Memoizada por país+ids+cardWidth. */
+const CromoRow = ({
+  country,
+  cromos,
+  cardWidth,
+  onPress,
+  onLongPress,
+}: {
+  country: CountryMeta;
+  cromos: AlbumCromo[];
+  cardWidth: number;
+  onPress: (cromo: AlbumCromo) => void;
+  onLongPress: (cromo: AlbumCromo) => void;
+}) => {
+  return (
+    <View
+      style={{
+        flexDirection: 'row',
+        gap: CARD_GAP,
+        marginBottom: ROW_VERTICAL_GAP,
+      }}
+    >
+      {cromos.map((cromo) => (
+        <View key={cromo.id} style={{ width: cardWidth }}>
+          <CromoCard
+            cromo={cromo}
+            country={country}
+            onPress={onPress}
+            onLongPress={onLongPress}
+          />
+        </View>
+      ))}
+      {/* Spacers para que la última fila no tenga cromos "estirados" */}
+      {Array.from({ length: COLS - cromos.length }).map((_, i) => (
+        <View key={`spacer-${i}`} style={{ width: cardWidth }} />
+      ))}
+    </View>
+  );
+};
+
+// Para que TS no se queje de styles unused — usado por CromoRow via cardWidth dinámico.
+StyleSheet.create({});

@@ -7,6 +7,8 @@ import { kv, KvKey } from './kv';
 
 let isRunning = false;
 let listenerInstalled = false;
+let scheduledTimer: ReturnType<typeof setTimeout> | null = null;
+const SCHEDULE_DEBOUNCE_MS = 800;
 
 /**
  * Drena el inventario local pendiente (dirty=1) al servidor.
@@ -72,10 +74,22 @@ export async function flushDirtyInventory(): Promise<{ pushed: number; failed: n
   }
 }
 
-/** Compatibilidad: el callsite antiguo todavía llama a esta función. */
+/**
+ * Programa un flush con debounce de 800ms. Si el usuario está tocando muchos
+ * cromos rápido (abriendo un sobre, por ejemplo), agrupamos todos los cambios
+ * en una sola corrida en vez de hacer un round-trip por tap.
+ */
+export function scheduleFlush(): void {
+  if (scheduledTimer) clearTimeout(scheduledTimer);
+  scheduledTimer = setTimeout(() => {
+    scheduledTimer = null;
+    void flushDirtyInventory();
+  }, SCHEDULE_DEBOUNCE_MS);
+}
+
+/** Compatibilidad: callsites viejos llaman a esta función. */
 export async function enqueueInventoryDelta(_delta: unknown): Promise<void> {
-  // dirty=1 ya lo seteó inventory.ts. Solo necesitamos disparar el flush.
-  void flushDirtyInventory();
+  scheduleFlush();
 }
 
 /** Alias retro-compat. */
