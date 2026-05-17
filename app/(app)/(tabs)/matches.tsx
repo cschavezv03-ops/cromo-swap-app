@@ -1,27 +1,15 @@
 import { useRouter } from 'expo-router';
-import { useEffect, useMemo, useState } from 'react';
-import {
-  Pressable,
-  RefreshControl,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
-} from 'react-native';
+import { useMemo, useState } from 'react';
+import { Pressable, RefreshControl, ScrollView, View } from 'react-native';
 
-import { universitiesById } from '@/features/auth/lib/universities';
 import { MatchRow } from '@/features/matches/components/MatchRow';
 import {
   useMatchSuggestions,
   useMyMatches,
 } from '@/features/matches/hooks/useMatches';
-import {
-  useSearchProfiles,
-  type ProfileSearchResult,
-} from '@/features/profile/hooks/useSearchProfiles';
 import { useTheme } from '@/theme/ThemeProvider';
-import { Avatar, Chip, EmptyState, Screen, ScreenHeader, Skeleton } from '@/ui';
+import { Chip, EmptyState, Screen, ScreenHeader, Skeleton } from '@/ui';
+import { SearchIcon } from '@/ui/icons/Glyphs';
 
 type Tab = 'suggested' | 'sent' | 'received';
 
@@ -29,19 +17,10 @@ export default function MatchesTab() {
   const router = useRouter();
   const { colors } = useTheme();
   const [tab, setTab] = useState<Tab>('suggested');
-  const [searchInput, setSearchInput] = useState('');
-  const [debouncedQuery, setDebouncedQuery] = useState('');
-
-  useEffect(() => {
-    const t = setTimeout(() => setDebouncedQuery(searchInput.trim()), 300);
-    return () => clearTimeout(t);
-  }, [searchInput]);
 
   const suggestions = useMatchSuggestions();
   const sent = useMyMatches('sent');
   const received = useMyMatches('received');
-  const search = useSearchProfiles(debouncedQuery);
-  const isSearching = debouncedQuery.length >= 2;
 
   const active =
     tab === 'suggested' ? suggestions : tab === 'sent' ? sent : received;
@@ -62,39 +41,21 @@ export default function MatchesTab() {
 
   return (
     <Screen>
-      <ScreenHeader title="Matches" />
-
-      <View className="px-5 pb-2">
-        <View
-          style={{
-            flexDirection: 'row',
-            alignItems: 'center',
-            paddingHorizontal: 14,
-            height: 40,
-            borderRadius: 12,
-            backgroundColor: colors.surface,
-          }}
-        >
-          <Text style={{ color: colors.textTertiary, fontSize: 14, marginRight: 8 }}>
-            ⌕
-          </Text>
-          <TextInput
-            value={searchInput}
-            onChangeText={setSearchInput}
-            placeholder="Buscar gente por nombre…"
-            placeholderTextColor={colors.textTertiary}
-            style={{ flex: 1, color: colors.textPrimary, fontSize: 14 }}
-            autoCapitalize="none"
-            autoCorrect={false}
-            returnKeyType="search"
-          />
-          {searchInput.length > 0 && (
-            <Pressable onPress={() => setSearchInput('')} hitSlop={8}>
-              <Text style={{ color: colors.textTertiary, fontSize: 14 }}>✕</Text>
-            </Pressable>
-          )}
-        </View>
-      </View>
+      <ScreenHeader
+        title="Matches"
+        rightSlot={
+          <Pressable
+            onPress={() => router.push('/(app)/search')}
+            hitSlop={8}
+            className="h-10 w-10 items-center justify-center rounded-pill"
+            android_ripple={{ color: colors.surface, borderless: true, radius: 20 }}
+            accessibilityLabel="Buscar personas"
+            accessibilityRole="button"
+          >
+            <SearchIcon size={20} color={colors.textPrimary} strokeWidth={2} />
+          </Pressable>
+        }
+      />
 
       <View className="flex-row gap-2 px-5 pb-3">
         <Chip
@@ -125,16 +86,7 @@ export default function MatchesTab() {
         refreshControl={<RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} />}
         keyboardShouldPersistTaps="handled"
       >
-        {isSearching && (
-          <SearchResultsList
-            isLoading={search.isLoading}
-            data={search.data ?? []}
-            onOpen={(id) =>
-              router.push({ pathname: '/(app)/profile/[id]', params: { id } })
-            }
-          />
-        )}
-        {!isSearching && tab === 'suggested' && (
+        {tab === 'suggested' && (
           <SuggestedList
             isLoading={suggestions.isLoading}
             data={suggestions.data ?? []}
@@ -143,7 +95,7 @@ export default function MatchesTab() {
             }
           />
         )}
-        {!isSearching && tab === 'sent' && (
+        {tab === 'sent' && (
           <CreatedList
             isLoading={sent.isLoading}
             data={sent.data ?? []}
@@ -153,7 +105,7 @@ export default function MatchesTab() {
             }
           />
         )}
-        {!isSearching && tab === 'received' && (
+        {tab === 'received' && (
           <CreatedList
             isLoading={received.isLoading}
             data={received.data ?? []}
@@ -293,76 +245,4 @@ function statusFor(
     return { label: 'Pendiente', tone: 'warning' };
   }
   return { label: status, tone: 'tertiary' };
-}
-
-type SearchResultsListProps = {
-  isLoading: boolean;
-  data: ProfileSearchResult[];
-  onOpen: (id: string) => void;
-};
-
-function SearchResultsList({ isLoading, data, onOpen }: SearchResultsListProps) {
-  const { colors } = useTheme();
-  if (isLoading) return <LoadingRows />;
-  if (data.length === 0) {
-    return (
-      <EmptyState
-        title="Sin resultados"
-        description="Probá con otro nombre o verificá que esa persona ya creó su perfil."
-      />
-    );
-  }
-  return (
-    <View>
-      {data.map((p) => {
-        const uni = p.university ? universitiesById[p.university] : null;
-        return (
-          <Pressable
-            key={p.id}
-            onPress={() => onOpen(p.id)}
-            style={{
-              flexDirection: 'row',
-              alignItems: 'center',
-              paddingHorizontal: 20,
-              paddingVertical: 12,
-              borderBottomWidth: StyleSheet.hairlineWidth,
-              borderBottomColor: colors.border,
-            }}
-          >
-            <Avatar url={p.avatar_url} name={p.display_name} size={44} />
-            <View style={{ flex: 1, marginLeft: 12 }}>
-              <View className="flex-row items-center gap-2">
-                <Text
-                  className="text-base font-sans-semibold text-text-primary"
-                  numberOfLines={1}
-                >
-                  {p.display_name}
-                </Text>
-                {p.is_friend && (
-                  <Text className="text-[11px] font-sans-semibold text-success">
-                    ✓ Amigo
-                  </Text>
-                )}
-              </View>
-              <View className="mt-0.5 flex-row items-center gap-2">
-                {uni && (
-                  <Text
-                    className="text-xs font-sans-semibold"
-                    style={{ color: uni.color }}
-                  >
-                    {uni.short}
-                  </Text>
-                )}
-                {typeof p.album_pct === 'number' && (
-                  <Text className="text-xs font-sans-medium text-text-tertiary">
-                    · {Math.round(p.album_pct)}% del álbum
-                  </Text>
-                )}
-              </View>
-            </View>
-          </Pressable>
-        );
-      })}
-    </View>
-  );
 }
