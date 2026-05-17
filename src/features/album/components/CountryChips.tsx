@@ -1,9 +1,13 @@
-import { ScrollView, Text, View } from 'react-native';
+import { ScrollView } from 'react-native';
 
-import { Chip, FlagDot } from '@/ui';
+import { Chip } from '@/ui';
+import { GlobeIcon } from '@/ui/icons/Glyphs';
+import { useTheme } from '@/theme/ThemeProvider';
 
 import { SPECIAL_SECTIONS } from '../lib/sections';
 import type { CountryMeta } from '../lib/types';
+
+import { SectionMark } from './SectionMark';
 
 type Props = {
   countries: CountryMeta[];
@@ -24,8 +28,17 @@ const SPECIAL_ORDER = ['FWC', 'MUSEUM', 'COCA', 'EXTRA'] as const;
  * sea fácil ver solo "Coca-Cola" o solo "Extra Stickers". Después siguen
  * los 48 países en el mismo orden que devuelve `countries`.
  */
+const SPECIAL_LABELS: Record<(typeof SPECIAL_ORDER)[number], string> = {
+  FWC: 'Intro',
+  MUSEUM: 'Museum',
+  COCA: 'Coca-Cola',
+  EXTRA: 'Extra',
+};
+
 export function CountryChips({ countries, selected, onToggle, onClear }: Props) {
+  const { colors } = useTheme();
   const allSelected = selected.length === 0;
+  const allChipColor = allSelected ? colors.bg : colors.textSecondary;
   return (
     <ScrollView
       horizontal
@@ -33,21 +46,9 @@ export function CountryChips({ countries, selected, onToggle, onClear }: Props) 
       contentContainerStyle={{ paddingHorizontal: 20, gap: 8 }}
     >
       <Chip
-        label="ALL"
+        label="Todos"
         variant={allSelected ? 'selected' : 'default'}
-        leftSlot={
-          <View
-            style={{
-              width: 16,
-              height: 16,
-              borderRadius: 8,
-              alignItems: 'center',
-              justifyContent: 'center',
-            }}
-          >
-            <Text style={{ fontSize: 12 }}>🌐</Text>
-          </View>
-        }
+        leftSlot={<GlobeIcon size={14} color={allChipColor} />}
         onPress={onClear}
       />
 
@@ -58,8 +59,9 @@ export function CountryChips({ countries, selected, onToggle, onClear }: Props) 
         return (
           <Chip
             key={code}
-            label={meta.flag_emoji + '  ' + (code === 'COCA' ? 'Coca-Cola' : code === 'EXTRA' ? 'Extra' : code === 'MUSEUM' ? 'Museum' : 'Intro')}
+            label={SPECIAL_LABELS[code]}
             variant={isOn ? 'selected' : 'default'}
+            leftSlot={<SectionMark country={meta} size="sm" />}
             onPress={() => onToggle(code)}
           />
         );
@@ -73,9 +75,7 @@ export function CountryChips({ countries, selected, onToggle, onClear }: Props) 
             key={c.code}
             label={c.code}
             variant={isOn ? 'selected' : 'default'}
-            leftSlot={
-              <FlagDot code={c.code} color={c.stripe} accentColor={c.accent} size="sm" />
-            }
+            leftSlot={<SectionMark country={c} size="sm" />}
             onPress={() => onToggle(c.code)}
           />
         );

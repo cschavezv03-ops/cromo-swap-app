@@ -2,13 +2,13 @@ import { useEffect, useRef, useState } from 'react';
 import {
   Pressable,
   StyleSheet,
-  Text,
   TextInput,
   View,
   type TextInputProps,
 } from 'react-native';
 
 import { useTheme } from '@/theme/ThemeProvider';
+import { CrossIcon, SearchIcon } from '@/ui/icons/Glyphs';
 
 type Props = {
   /** Valor controlado externamente. */
@@ -71,15 +71,9 @@ export function SearchBar({
         marginHorizontal: compact ? 0 : 20,
       }}
     >
-      <Text
-        style={{
-          fontSize: 15,
-          color: colors.textTertiary,
-          marginRight: 10,
-        }}
-      >
-        🔍
-      </Text>
+      <View style={{ marginRight: 10 }}>
+        <SearchIcon size={16} color={colors.textTertiary} />
+      </View>
       <TextInput
         value={local}
         onChangeText={handleChange}
@@ -101,24 +95,15 @@ export function SearchBar({
           onPress={handleClear}
           hitSlop={8}
           style={{
-            width: 22,
-            height: 22,
-            borderRadius: 11,
+            width: 20,
+            height: 20,
+            borderRadius: 10,
             backgroundColor: colors.borderStrong,
             alignItems: 'center',
             justifyContent: 'center',
           }}
         >
-          <Text
-            style={{
-              fontSize: 12,
-              lineHeight: 14,
-              color: colors.bg,
-              fontWeight: '700',
-            }}
-          >
-            ×
-          </Text>
+          <CrossIcon size={11} color={colors.bg} strokeWidth={2.4} />
         </Pressable>
       )}
     </View>

@@ -1,6 +1,8 @@
 import { memo } from 'react';
 import { Text, View } from 'react-native';
 
+import { useTheme } from '@/theme/ThemeProvider';
+
 import type { MatchableCromo } from '../data/match-detail';
 
 type Props = {
@@ -15,8 +17,9 @@ type Props = {
  * estado "missing" — aquí todo lo que se muestra está disponible.
  */
 function MatchableCromoCardComponent({ cromo, showCount = true }: Props) {
-  const stripeColor = cromo.stripe ?? '#9CA3AF';
-  const flag = cromo.flag_emoji ?? '🏳️';
+  const { colors } = useTheme();
+  const stripeColor = cromo.stripe ?? colors.borderStrong;
+  const flag = cromo.flag_emoji ?? '';
   const jerseyOrNumber = cromo.jersey ?? cromo.section_number;
   const displayLabel = cromo.player_name ?? cromo.display_name;
   const showRepeatedBadge = showCount && cromo.available_quantity >= 2;
@@ -24,7 +27,7 @@ function MatchableCromoCardComponent({ cromo, showCount = true }: Props) {
   return (
     <View
       className="rounded-md overflow-hidden bg-surface-elev"
-      style={{ borderWidth: 1, borderColor: '#E5E5EA' }}
+      style={{ borderWidth: 1, borderColor: colors.border }}
     >
       <View style={{ height: 4, width: '100%', backgroundColor: stripeColor }} />
       <View className="p-2" style={{ minHeight: 96 }}>
@@ -32,9 +35,11 @@ function MatchableCromoCardComponent({ cromo, showCount = true }: Props) {
           <Text className="text-[10px] font-sans-semibold text-text-secondary">
             {cromo.printed_code}
           </Text>
-          <Text className="text-xs" numberOfLines={1}>
-            {flag}
-          </Text>
+          {flag.length > 0 && (
+            <Text className="text-xs" numberOfLines={1}>
+              {flag}
+            </Text>
+          )}
         </View>
         <View className="mt-1 flex-1 items-center justify-center">
           <Text className="text-[26px] font-mono text-text-primary" style={{ lineHeight: 30 }}>

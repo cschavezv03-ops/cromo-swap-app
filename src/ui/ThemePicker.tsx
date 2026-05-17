@@ -2,18 +2,19 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { useTheme } from '@/theme/ThemeProvider';
 import type { ThemeMode } from '@/theme/tokens';
+import { CheckIcon, MoonIcon, SunIcon, SystemIcon } from '@/ui/icons/Glyphs';
 
 type Option = {
   key: 'system' | 'light' | 'dark';
   label: string;
   hint: string;
-  glyph: string;
+  Icon: (props: { size?: number; color: string }) => React.ReactNode;
 };
 
 const OPTIONS: Option[] = [
-  { key: 'system', label: 'Sistema', hint: 'Sigue tu Android',     glyph: '◐' },
-  { key: 'light',  label: 'Claro',   hint: 'Fondo blanco',         glyph: '☀' },
-  { key: 'dark',   label: 'Oscuro',  hint: 'Negro, ahorra batería', glyph: '☾' },
+  { key: 'system', label: 'Sistema', hint: 'Sigue tu Android',      Icon: SystemIcon },
+  { key: 'light',  label: 'Claro',   hint: 'Fondo blanco',           Icon: SunIcon },
+  { key: 'dark',   label: 'Oscuro',  hint: 'Negro, ahorra batería',  Icon: MoonIcon },
 ];
 
 type Props = {
@@ -42,6 +43,7 @@ export function ThemePicker({ showLabel = true }: Props) {
         const isSelected = opt.key === current;
         const isLast = i === OPTIONS.length - 1;
         const tintWhenSelected = opt.key === 'system' ? colors.accent : colors.textPrimary;
+        const iconColor = isSelected ? tintWhenSelected : colors.textTertiary;
         return (
           <Pressable
             key={opt.key}
@@ -54,15 +56,9 @@ export function ThemePicker({ showLabel = true }: Props) {
               borderBottomColor: colors.border,
             }}
           >
-            <Text
-              style={{
-                width: 28,
-                fontSize: 18,
-                color: isSelected ? tintWhenSelected : colors.textTertiary,
-              }}
-            >
-              {opt.glyph}
-            </Text>
+            <View style={{ width: 28, alignItems: 'flex-start' }}>
+              <opt.Icon size={18} color={iconColor} />
+            </View>
             <View style={{ flex: 1 }}>
               <Text
                 style={{
@@ -77,9 +73,7 @@ export function ThemePicker({ showLabel = true }: Props) {
                 {opt.key === 'system' ? `${opt.hint} (actualmente: ${mode === 'dark' ? 'oscuro' : 'claro'})` : opt.hint}
               </Text>
             </View>
-            {isSelected && (
-              <Text style={{ fontSize: 18, color: tintWhenSelected, fontWeight: '700' }}>✓</Text>
-            )}
+            {isSelected && <CheckIcon size={18} color={tintWhenSelected} strokeWidth={2.4} />}
           </Pressable>
         );
       })}

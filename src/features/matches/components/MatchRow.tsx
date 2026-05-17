@@ -2,6 +2,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { universitiesById } from '@/features/auth/lib/universities';
 import { cn } from '@/shared/utils/cn';
+import { useTheme } from '@/theme/ThemeProvider';
 import { Chip } from '@/ui';
 
 type Props = {
@@ -45,6 +46,7 @@ export function MatchRow({
   statusTone = 'tertiary',
   onPress,
 }: Props) {
+  const { colors } = useTheme();
   const uni = universityId ? universitiesById[universityId] ?? null : null;
   const initial = displayName.trim()[0]?.toUpperCase() ?? '?';
   const typeLabel = matchType ? MATCH_TYPE_LABEL[matchType] ?? matchType : null;
@@ -55,7 +57,7 @@ export function MatchRow({
       className="flex-row items-center px-5 py-3 active:bg-surface"
       style={{
         borderBottomWidth: StyleSheet.hairlineWidth,
-        borderBottomColor: '#E5E5EA',
+        borderBottomColor: colors.border,
       }}
     >
       <View className="mr-3 h-11 w-11 items-center justify-center rounded-pill bg-surface">

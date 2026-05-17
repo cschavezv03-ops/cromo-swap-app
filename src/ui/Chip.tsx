@@ -17,9 +17,9 @@ type BaseProps = {
 
 type Props = BaseProps & Omit<PressableProps, 'children'>;
 
-const sizeStyles: Record<Size, string> = {
-  sm: 'h-8 px-3',
-  md: 'h-10 px-4',
+const sizeStyles: Record<Size, { container: string; text: string }> = {
+  sm: { container: 'h-8 px-3', text: 'text-[12px]' },
+  md: { container: 'h-9 px-3.5', text: 'text-[13px]' },
 };
 
 const variantStyles: Record<Variant, { container: string; text: string }> = {
@@ -45,13 +45,18 @@ export function Chip({
   return (
     <Wrapper
       onPress={onPress}
-      className={cn('flex-row items-center rounded-pill gap-1.5', sz, vr.container, className)}
+      className={cn(
+        'flex-row items-center rounded-pill gap-1.5',
+        sz.container,
+        vr.container,
+        className,
+      )}
       {...rest}
     >
       {leftSlot}
-      <Text className={cn('text-sm font-sans-semibold', vr.text)}>{label}</Text>
+      <Text className={cn(sz.text, 'font-sans-semibold', vr.text)}>{label}</Text>
       {typeof count === 'number' && (
-        <Text className={cn('text-sm font-sans-medium opacity-70', vr.text)}>{count}</Text>
+        <Text className={cn(sz.text, 'font-sans-medium opacity-60', vr.text)}>{count}</Text>
       )}
       {rightSlot}
     </Wrapper>

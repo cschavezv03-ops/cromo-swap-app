@@ -28,11 +28,13 @@ import {
   type WhatsAppPromptHandle,
 } from '@/features/profile/components/WhatsAppPrompt';
 import { useMyWhatsApp } from '@/features/profile/hooks/useWhatsApp';
+import { useTheme } from '@/theme/ThemeProvider';
 import { Button, Card, EmptyState, FlagDot, Screen, ScreenHeader, Skeleton, useToast } from '@/ui';
 
 export default function ListingDetailScreen() {
   const router = useRouter();
   const toast = useToast();
+  const { colors } = useTheme();
   const { user } = useSession();
   const profile = useProfile();
   const myWhatsApp = useMyWhatsApp();
@@ -253,25 +255,36 @@ export default function ListingDetailScreen() {
               </Text>
             ) : (
               <View className="gap-2">
-                {(bids.data ?? []).map((b, idx) => (
-                  <View
-                    key={b.id}
-                    className="flex-row items-center justify-between rounded-md bg-surface p-3"
-                  >
-                    <View>
-                      <Text className="text-sm font-sans-semibold text-text-primary">
-                        {idx === 0 ? '🏆 ' : ''}
-                        {b.bidder?.display_name ?? 'Anónimo'}
-                      </Text>
-                      <Text className="text-xs font-sans text-text-tertiary">
-                        {new Date(b.created_at).toLocaleString('es-ES')}
+                {(bids.data ?? []).map((b, idx) => {
+                  const isTop = idx === 0;
+                  return (
+                    <View
+                      key={b.id}
+                      className="flex-row items-center justify-between rounded-md bg-surface p-3"
+                    >
+                      <View className="flex-1 flex-row items-center gap-2">
+                        {isTop && (
+                          <View className="rounded-pill bg-text-primary px-2 py-0.5">
+                            <Text className="text-[10px] font-sans-bold text-bg tracking-wider">
+                              TOP
+                            </Text>
+                          </View>
+                        )}
+                        <View className="flex-1">
+                          <Text className="text-sm font-sans-semibold text-text-primary">
+                            {b.bidder?.display_name ?? 'Anónimo'}
+                          </Text>
+                          <Text className="text-xs font-sans text-text-tertiary">
+                            {new Date(b.created_at).toLocaleString('es-ES')}
+                          </Text>
+                        </View>
+                      </View>
+                      <Text className="text-base font-sans-black text-text-primary">
+                        {formatUsd(b.amount)}
                       </Text>
                     </View>
-                    <Text className="text-base font-sans-black text-text-primary">
-                      {formatUsd(b.amount)}
-                    </Text>
-                  </View>
-                ))}
+                  );
+                })}
               </View>
             )}
           </View>
@@ -292,7 +305,7 @@ export default function ListingDetailScreen() {
 
       <View
         className="absolute bottom-0 left-0 right-0 bg-bg px-5 pb-6 pt-3"
-        style={{ borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: '#E5E5EA' }}
+        style={{ borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.border }}
       >
         <ListingActions
           tx={tx}

@@ -24,12 +24,14 @@ import type {
 import { supabase } from '@/lib/supabase';
 import { useQueryClient } from '@tanstack/react-query';
 import { whatsappUrl } from '@/shared/utils/whatsapp';
+import { useTheme } from '@/theme/ThemeProvider';
 import { Button, EmptyState, Screen, ScreenHeader, Skeleton, useToast } from '@/ui';
 
 export default function TransactionDetailScreen() {
   const router = useRouter();
   const toast = useToast();
   const qc = useQueryClient();
+  const { colors } = useTheme();
   const { user } = useSession();
   const { id } = useLocalSearchParams<{ id: string }>();
   const txId = Array.isArray(id) ? id[0] : id;
@@ -209,7 +211,7 @@ export default function TransactionDetailScreen() {
         {(tx.status === 'accepted' || tx.status === 'completed') && (
           <View
             className="mt-6 rounded-md bg-surface p-4"
-            style={{ borderWidth: StyleSheet.hairlineWidth, borderColor: '#E5E5EA' }}
+            style={{ borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border }}
           >
             <Text className="text-xs font-sans-semibold uppercase tracking-wider text-text-tertiary">
               Contacto
@@ -234,7 +236,7 @@ export default function TransactionDetailScreen() {
 
       <View
         className="absolute bottom-0 left-0 right-0 bg-bg px-5 pb-6 pt-3"
-        style={{ borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: '#E5E5EA' }}
+        style={{ borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.border }}
       >
         <ActionButtons
           tx={tx}
@@ -284,8 +286,8 @@ function ItemsSection({ title, items }: { title: string; items: TransactionItemE
               return (
                 <View
                   key={it.id}
-                  className="rounded-md bg-surface p-2"
-                  style={{ width: 96, borderWidth: 1, borderColor: '#E5E5EA' }}
+                  className="rounded-md bg-surface p-2 border border-border"
+                  style={{ width: 96 }}
                 >
                   <Text className="text-[11px] font-sans-semibold text-text-secondary">
                     Cromo

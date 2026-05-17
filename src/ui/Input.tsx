@@ -2,6 +2,7 @@ import { forwardRef, useState } from 'react';
 import { Text, TextInput, View, type TextInputProps } from 'react-native';
 
 import { cn } from '@/shared/utils/cn';
+import { useTheme } from '@/theme/ThemeProvider';
 
 type Props = Omit<TextInputProps, 'placeholderTextColor'> & {
   label?: string;
@@ -16,19 +17,20 @@ export const Input = forwardRef<TextInput, Props>(function Input(
   { label, helper, error, leftSlot, rightSlot, className, onFocus, onBlur, ...rest },
   ref,
 ) {
+  const { colors } = useTheme();
   const [focused, setFocused] = useState(false);
 
   return (
     <View>
       {label && (
-        <Text className="mb-2 text-xs font-sans-medium uppercase tracking-wider text-text-tertiary">
+        <Text className="mb-2 text-[11px] font-sans-semibold uppercase tracking-[0.16em] text-text-tertiary">
           {label}
         </Text>
       )}
       <View
         className={cn(
-          'flex-row items-center rounded-md border bg-surface px-3',
-          focused ? 'border-accent' : 'border-border',
+          'flex-row items-center rounded-md border bg-surface px-3.5',
+          focused ? 'border-text-primary' : 'border-transparent',
           error && 'border-danger',
           className,
         )}
@@ -36,8 +38,8 @@ export const Input = forwardRef<TextInput, Props>(function Input(
         {leftSlot}
         <TextInput
           ref={ref}
-          placeholderTextColor="#A1A1A9"
-          className="flex-1 py-3 text-base text-text-primary font-sans"
+          placeholderTextColor={colors.textTertiary}
+          className="flex-1 py-3 text-[15px] text-text-primary font-sans"
           onFocus={(e) => {
             setFocused(true);
             onFocus?.(e);

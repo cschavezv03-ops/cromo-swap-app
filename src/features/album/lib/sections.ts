@@ -4,32 +4,34 @@ import type { CountryMeta } from './types';
  * Metadata para las 4 secciones NO-país del álbum Panini.
  * Reusamos el shape de CountryMeta para que la UI las trate igual que un país.
  */
+// Sello visual es resuelto por <SectionMark>, así que `flag_emoji`
+// queda vacío para que nadie vuelva a renderizar el carácter como Text.
 export const SPECIAL_SECTIONS: Record<string, CountryMeta> = {
   FWC: {
     code: 'FWC',
     name: 'Introducción',
-    flag_emoji: '⚽️',
+    flag_emoji: '',
     stripe: '#1F1B14',
     accent: '#FFD46B',
   },
   MUSEUM: {
     code: 'MUSEUM',
     name: 'FIFA Museum',
-    flag_emoji: '🏆',
+    flag_emoji: '',
     stripe: '#B8862C',
-    accent: '#1F1B14',
+    accent: '#F5E6C8',
   },
   COCA: {
     code: 'COCA',
     name: 'Coca-Cola Ecuador',
-    flag_emoji: '🥤',
+    flag_emoji: '',
     stripe: '#D52B1E',
     accent: '#FFFFFF',
   },
   EXTRA: {
     code: 'EXTRA',
     name: 'Extra Stickers',
-    flag_emoji: '✨',
+    flag_emoji: '',
     stripe: '#4F46E5',
     accent: '#FFFFFF',
   },

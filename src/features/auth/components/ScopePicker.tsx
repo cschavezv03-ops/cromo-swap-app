@@ -1,6 +1,7 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { useTheme } from '@/theme/ThemeProvider';
+import { CheckIcon } from '@/ui/icons/Glyphs';
 
 import { universities, type University } from '../lib/universities';
 
@@ -119,9 +120,9 @@ function Row({ uni, selected, locked, isLast, onPress }: RowProps) {
           Predeterminada
         </Text>
       ) : (
-        <Text style={{ fontSize: 18, color: accent, fontWeight: '600' }}>
-          {selected ? '✓' : ''}
-        </Text>
+        <View style={{ width: 20, alignItems: 'flex-end' }}>
+          {selected && <CheckIcon size={18} color={accent} strokeWidth={2.4} />}
+        </View>
       )}
     </View>
   );

@@ -2,6 +2,7 @@ import { memo } from 'react';
 import { Pressable, Text, View } from 'react-native';
 
 import { cn } from '@/shared/utils/cn';
+import { useTheme } from '@/theme/ThemeProvider';
 
 import type { AlbumCromo, CountryMeta } from '../lib/types';
 
@@ -13,10 +14,11 @@ type Props = {
 };
 
 function CromoCardComponent({ cromo, country, onPress, onLongPress }: Props) {
+  const { colors } = useTheme();
   const isMissing = cromo.status === 'missing';
   const isRepeated = cromo.status === 'repeated';
   const ownedBadge = isRepeated ? cromo.owned : 0;
-  const stripeColor = country?.stripe ?? '#9CA3AF';
+  const stripeColor = country?.stripe ?? colors.borderStrong;
 
   return (
     <Pressable
@@ -28,13 +30,13 @@ function CromoCardComponent({ cromo, country, onPress, onLongPress }: Props) {
         isMissing
           ? {
               borderWidth: 1.5,
-              borderColor: '#D1D1D6',
+              borderColor: colors.borderStrong,
               borderStyle: 'dashed',
               backgroundColor: 'transparent',
             }
           : {
               borderWidth: 1,
-              borderColor: '#E5E5EA',
+              borderColor: colors.border,
             }
       }
     >

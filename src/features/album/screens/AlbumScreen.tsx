@@ -18,6 +18,7 @@ import { CromoCard } from '../components/CromoCard';
 import { CromoSheet, type CromoSheetHandle } from '../components/CromoSheet';
 import { FilterTabs } from '../components/FilterTabs';
 import { SearchBar } from '../components/SearchBar';
+import { SectionMark } from '../components/SectionMark';
 import { SobreSheet, type SobreSheetHandle } from '../components/SobreSheet';
 import { loadAllCountries } from '../data/catalog';
 import { pullRemoteInventory } from '../data/inventory';
@@ -292,13 +293,13 @@ const CountryHeader = ({ section }: { section: CountrySectionData }) => {
         justifyContent: 'space-between',
       }}
     >
-      <View className="flex-row items-center gap-2">
-        <Text className="text-2xl">{country.flag_emoji}</Text>
+      <View className="flex-row items-center gap-3">
+        <SectionMark country={country} size="md" />
         <View>
-          <Text className="text-base font-sans-bold text-text-primary">
+          <Text className="text-[15px] font-sans-bold text-text-primary">
             {country.name}
           </Text>
-          <Text className="text-xs font-sans-medium text-text-tertiary">
+          <Text className="text-[11px] font-sans-medium text-text-tertiary mt-0.5">
             {subtitleLeft} · {haveCount}/{totalCount}
           </Text>
         </View>

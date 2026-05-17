@@ -49,9 +49,9 @@ export default function MercadoTab() {
           <Pressable
             onPress={() => createSheet.current?.present()}
             hitSlop={8}
-            className="h-9 px-3 items-center justify-center rounded-pill bg-text-primary"
+            className="h-9 px-3.5 items-center justify-center rounded-pill bg-text-primary"
           >
-            <Text className="text-sm font-sans-bold text-bg">+ Publicar</Text>
+            <Text className="text-[13px] font-sans-semibold text-bg">+  Publicar</Text>
           </Pressable>
         }
       />

@@ -10,6 +10,7 @@ import {
 } from '@/features/matches/hooks/useMatches';
 import { useMyMatches } from '@/features/matches/hooks/useMatches';
 import type { MatchableCromo } from '@/features/matches/data/match-detail';
+import { useTheme } from '@/theme/ThemeProvider';
 import { Button, Chip, EmptyState, Screen, ScreenHeader, Skeleton, useToast } from '@/ui';
 
 const GRID_COLS = 4;
@@ -19,6 +20,7 @@ const GRID_HPADDING = 20;
 export default function MatchDetailScreen() {
   const router = useRouter();
   const toast = useToast();
+  const { colors } = useTheme();
   const { id } = useLocalSearchParams<{ id: string }>();
   const counterpartyId = Array.isArray(id) ? id[0] : id;
 
@@ -122,7 +124,7 @@ export default function MatchDetailScreen() {
             {existingMatch && (
               <View
                 className="mb-5 rounded-md bg-surface p-4"
-                style={{ borderWidth: StyleSheet.hairlineWidth, borderColor: '#E5E5EA' }}
+                style={{ borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border }}
               >
                 <Text className="text-xs font-sans-semibold uppercase tracking-wider text-text-tertiary">
                   Estado del match
@@ -156,7 +158,7 @@ export default function MatchDetailScreen() {
 
       <View
         className="absolute bottom-0 left-0 right-0 bg-bg px-5 pb-6 pt-3"
-        style={{ borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: '#E5E5EA' }}
+        style={{ borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.border }}
       >
         <Button
           label={

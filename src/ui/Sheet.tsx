@@ -35,8 +35,16 @@ export const Sheet = forwardRef<BottomSheetModal, Props>(function Sheet(
       snapPoints={points}
       enablePanDownToClose
       backdropComponent={renderBackdrop}
-      backgroundStyle={{ backgroundColor: colors.surfaceElev }}
-      handleIndicatorStyle={{ backgroundColor: colors.border }}
+      backgroundStyle={{
+        backgroundColor: colors.surfaceElev,
+        borderTopLeftRadius: 20,
+        borderTopRightRadius: 20,
+      }}
+      handleIndicatorStyle={{
+        backgroundColor: colors.borderStrong,
+        width: 36,
+        height: 4,
+      }}
       {...rest}
     >
       <BottomSheetView style={{ flex: 1, paddingHorizontal: 20, paddingTop: 8 }}>

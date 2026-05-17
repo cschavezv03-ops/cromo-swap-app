@@ -12,7 +12,7 @@ type CardProps = ViewProps & {
 };
 
 const variantStyles: Record<Variant, string> = {
-  elevated: 'bg-surface-elev rounded-lg',
+  elevated: 'bg-surface-elev rounded-lg border border-border',
   flat: 'bg-surface rounded-lg',
   outline: 'bg-bg border border-border rounded-lg',
 };

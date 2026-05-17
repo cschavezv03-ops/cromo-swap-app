@@ -2,6 +2,7 @@ import { forwardRef } from 'react';
 import { ActivityIndicator, Pressable, Text, View, type PressableProps } from 'react-native';
 
 import { cn } from '@/shared/utils/cn';
+import { useTheme } from '@/theme/ThemeProvider';
 
 type Variant = 'primary' | 'secondary' | 'ghost' | 'danger';
 type Size = 'sm' | 'md' | 'lg';
@@ -17,15 +18,15 @@ type Props = Omit<PressableProps, 'children'> & {
 };
 
 const sizeStyles: Record<Size, { container: string; text: string }> = {
-  sm: { container: 'h-9 px-3 rounded-md', text: 'text-sm' },
-  md: { container: 'h-11 px-4 rounded-md', text: 'text-base' },
-  lg: { container: 'h-14 px-5 rounded-lg', text: 'text-lg' },
+  sm: { container: 'h-9 px-3.5 rounded-pill', text: 'text-[13px]' },
+  md: { container: 'h-11 px-5 rounded-pill', text: 'text-[15px]' },
+  lg: { container: 'h-14 px-6 rounded-pill', text: 'text-[16px]' },
 };
 
 const variantStyles: Record<Variant, { container: string; text: string; pressed: string }> = {
   primary: {
-    container: 'bg-accent',
-    text: 'text-white font-sans-semibold',
+    container: 'bg-text-primary',
+    text: 'text-bg font-sans-semibold',
     pressed: 'opacity-80',
   },
   secondary: {
@@ -59,9 +60,12 @@ export const Button = forwardRef<View, Props>(function Button(
   },
   ref,
 ) {
+  const { colors } = useTheme();
   const isDisabled = disabled || loading;
   const sz = sizeStyles[size];
   const vr = variantStyles[variant];
+  const spinnerColor =
+    variant === 'secondary' || variant === 'ghost' ? colors.textPrimary : colors.bg;
 
   return (
     <Pressable
@@ -86,7 +90,7 @@ export const Button = forwardRef<View, Props>(function Button(
           )}
         >
           {loading ? (
-            <ActivityIndicator color={variant === 'secondary' ? '#0B0B0E' : '#FFFFFF'} />
+            <ActivityIndicator color={spinnerColor} size="small" />
           ) : (
             <>
               {leftSlot}

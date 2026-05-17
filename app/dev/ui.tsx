@@ -1,7 +1,7 @@
 import type { BottomSheetModal } from '@gorhom/bottom-sheet';
 import { useRouter } from 'expo-router';
 import { useRef, useState } from 'react';
-import { ScrollView, Text, View } from 'react-native';
+import { Pressable, ScrollView, Text, View } from 'react-native';
 
 import { useTheme } from '@/theme/ThemeProvider';
 import {
@@ -20,6 +20,7 @@ import {
   Skeleton,
   useToast,
 } from '@/ui';
+import { MoonIcon, SunIcon } from '@/ui/icons/Glyphs';
 
 if (!__DEV__) {
   // Hide from production routing; users shouldn't see this.
@@ -43,10 +44,17 @@ export default function UiPlayground() {
         title="UI playground"
         onBack={() => router.back()}
         rightSlot={
-          <Chip
-            label={mode === 'dark' ? '🌙' : '☀️'}
+          <Pressable
             onPress={() => setOverride(mode === 'dark' ? 'light' : 'dark')}
-          />
+            hitSlop={8}
+            className="h-9 w-9 items-center justify-center rounded-pill bg-surface"
+          >
+            {mode === 'dark' ? (
+              <MoonIcon size={18} color="#A1A1A9" />
+            ) : (
+              <SunIcon size={18} color="#A1A1A9" />
+            )}
+          </Pressable>
         }
       />
       <ScrollView contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 40, gap: 24 }}>

@@ -29,20 +29,29 @@ function TabContent({ focused, label, icon }: { focused: boolean; label: string;
   const { colors } = useTheme();
   const tint = focused ? colors.textPrimary : colors.textTertiary;
   return (
-    <View style={{ alignItems: 'center', justifyContent: 'center', width: 64, paddingTop: 4 }}>
+    <View style={{ alignItems: 'center', justifyContent: 'center', width: 64, paddingTop: 6 }}>
       {icon(focused, tint)}
       <Text
         numberOfLines={1}
         style={{
           marginTop: 4,
           fontSize: 10,
-          fontWeight: focused ? '700' : '500',
+          fontWeight: focused ? '600' : '500',
           color: tint,
-          letterSpacing: 0.2,
+          letterSpacing: 0.1,
         }}
       >
         {label}
       </Text>
+      <View
+        style={{
+          marginTop: 3,
+          height: 2,
+          width: focused ? 14 : 0,
+          borderRadius: 1,
+          backgroundColor: colors.textPrimary,
+        }}
+      />
     </View>
   );
 }
@@ -58,9 +67,10 @@ export default function TabsLayout() {
           backgroundColor: colors.bg,
           borderTopColor: colors.border,
           borderTopWidth: 0.5,
-          height: 68,
-          paddingTop: 6,
+          height: 70,
+          paddingTop: 4,
           paddingBottom: 10,
+          elevation: 0,
         },
       }}
     >

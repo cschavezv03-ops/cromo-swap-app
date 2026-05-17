@@ -1,8 +1,18 @@
+import type { ComponentType } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { useTheme } from '@/theme/ThemeProvider';
+import {
+  CheckIcon,
+  CrossIcon,
+  MailIcon,
+  SparkleIcon,
+  SwapIcon,
+} from '@/ui/icons/Glyphs';
 
 import type { Notification, NotificationPayload } from '../data/notifications';
+
+type IconCmp = ComponentType<{ size?: number; color: string; strokeWidth?: number }>;
 
 type Props = {
   notification: Notification;
@@ -14,50 +24,50 @@ type Props = {
  * Devuelve un mapping {emoji, title, subtitle} desde el `kind` y `payload`
  * de la notificación. Mantén en un solo lugar para no spreadear strings.
  */
-function describe(notification: Notification): { glyph: string; title: string; subtitle: string } {
+function describe(notification: Notification): { Icon: IconCmp; title: string; subtitle: string } {
   const p = (notification.payload as NotificationPayload) ?? {};
   const name = p.counterparty_name ?? 'Alguien';
 
   switch (notification.kind) {
     case 'match_new':
       return {
-        glyph: '⇄',
+        Icon: SwapIcon,
         title: 'Nuevo match',
         subtitle: `${name} tiene cromos que te sirven.`,
       };
     case 'match_response':
       return {
-        glyph: '✓',
+        Icon: CheckIcon,
         title: 'Respondieron a tu match',
         subtitle: `${name} ya decidió sobre tu propuesta.`,
       };
     case 'transaction_new':
       return {
-        glyph: '✉',
+        Icon: MailIcon,
         title: 'Propuesta de intercambio',
         subtitle: `${name} te propuso un intercambio.`,
       };
     case 'transaction_accepted':
       return {
-        glyph: '✅',
+        Icon: CheckIcon,
         title: 'Intercambio aceptado',
         subtitle: `${name} aceptó. Coordina por WhatsApp.`,
       };
     case 'transaction_completed':
       return {
-        glyph: '🎉',
+        Icon: SparkleIcon,
         title: 'Intercambio completado',
-        subtitle: `Tu álbum se actualizó.`,
+        subtitle: 'Tu álbum se actualizó.',
       };
     case 'transaction_cancelled':
       return {
-        glyph: '✕',
+        Icon: CrossIcon,
         title: 'Intercambio cancelado',
         subtitle: `${name} canceló o no se completó.`,
       };
     default:
       return {
-        glyph: '·',
+        Icon: MailIcon,
         title: notification.kind,
         subtitle: '',
       };
@@ -66,8 +76,9 @@ function describe(notification: Notification): { glyph: string; title: string; s
 
 export function NotificationRow({ notification, onPress, isLast }: Props) {
   const { colors } = useTheme();
-  const { glyph, title, subtitle } = describe(notification);
+  const { Icon, title, subtitle } = describe(notification);
   const unread = !notification.read;
+  const iconColor = unread ? '#FFFFFF' : colors.textPrimary;
 
   return (
     <Pressable
@@ -92,14 +103,7 @@ export function NotificationRow({ notification, onPress, isLast }: Props) {
           backgroundColor: unread ? colors.accent : colors.surface,
         }}
       >
-        <Text
-          style={{
-            fontSize: 16,
-            color: unread ? '#FFFFFF' : colors.textPrimary,
-          }}
-        >
-          {glyph}
-        </Text>
+        <Icon size={16} color={iconColor} strokeWidth={2} />
       </View>
       <View style={{ flex: 1, marginLeft: 12 }}>
         <Text
