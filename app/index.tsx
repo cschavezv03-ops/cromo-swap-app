@@ -13,7 +13,7 @@ export default function Index() {
   }
 
   if (!session) {
-    return <Redirect href="/(auth)/email" />;
+    return <Redirect href="/(auth)/welcome" />;
   }
 
   if (profileQuery.isPending || profileQuery.isError) {

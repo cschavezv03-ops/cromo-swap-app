@@ -6,10 +6,7 @@ import { useProfile } from '@/features/auth/hooks/useProfile';
 import { useSession } from '@/features/auth/hooks/useSession';
 import { universitiesById } from '@/features/auth/lib/universities';
 import { AuctionCountdown } from '@/features/marketplace/components/AuctionCountdown';
-import {
-  BidSheet,
-  type BidSheetHandle,
-} from '@/features/marketplace/components/BidSheet';
+import { BidSheet, type BidSheetHandle } from '@/features/marketplace/components/BidSheet';
 import { ListingPriceTag } from '@/features/marketplace/components/ListingPriceTag';
 import { useBidsForListing, useBuyNowAuction } from '@/features/marketplace/hooks/useBids';
 import {
@@ -28,6 +25,7 @@ import {
   type WhatsAppPromptHandle,
 } from '@/features/profile/components/WhatsAppPrompt';
 import { useMyWhatsApp } from '@/features/profile/hooks/useWhatsApp';
+import { track } from '@/lib/observability';
 import { useTheme } from '@/theme/ThemeProvider';
 import { Button, Card, EmptyState, FlagDot, Screen, ScreenHeader, Skeleton, useToast } from '@/ui';
 
@@ -113,7 +111,7 @@ export default function ListingDetailScreen() {
   }
 
   const seller = tx.seller;
-  const uni = seller?.university ? universitiesById[seller.university] ?? null : null;
+  const uni = seller?.university ? (universitiesById[seller.university] ?? null) : null;
   const auctionBlockedUntil = profile.data?.auction_blocked_until ?? null;
   const isAuctionBlocked = Boolean(
     auctionBlockedUntil && new Date(auctionBlockedUntil).getTime() > Date.now(),
@@ -136,6 +134,7 @@ export default function ListingDetailScreen() {
   const doRequestPurchase = async () => {
     try {
       const txId = await purchaseMut.mutateAsync(listingId);
+      track('purchase_requested', { listing_id: listingId, kind: tx?.kind });
       toast.show('Solicitud enviada. Espera la aceptación del vendedor.', 'success');
       router.push({ pathname: '/(app)/transaction/[id]', params: { id: txId } });
     } catch (err) {
@@ -172,6 +171,10 @@ export default function ListingDetailScreen() {
   const doBuyNow = async () => {
     try {
       const txId = await buyNowMut.mutateAsync();
+      track('buy_now_completed', {
+        listing_id: listingId,
+        buy_now_price: tx?.buy_now_price,
+      });
       toast.show('Compra confirmada. Espera la aceptación del vendedor.', 'success');
       router.push({ pathname: '/(app)/transaction/[id]', params: { id: txId } });
     } catch (err) {
@@ -222,7 +225,7 @@ export default function ListingDetailScreen() {
               <View
                 style={{ width: 7, height: 7, borderRadius: 3.5, backgroundColor: uni.color }}
               />
-              <Text className="text-[11px] font-sans-bold" style={{ color: uni.color }}>
+              <Text className="font-sans-bold text-[11px]" style={{ color: uni.color }}>
                 {uni.short}
               </Text>
             </View>
@@ -244,17 +247,17 @@ export default function ListingDetailScreen() {
         </View>
 
         {tx.negotiable && (
-          <Text className="mt-2 text-xs font-sans-semibold uppercase tracking-wider text-accent">
+          <Text className="mt-2 font-sans-semibold text-xs uppercase tracking-wider text-accent">
             Precio negociable
           </Text>
         )}
 
         {tx.description && (
           <View className="mt-6">
-            <Text className="text-xs font-sans-semibold uppercase tracking-wider text-text-tertiary">
+            <Text className="font-sans-semibold text-xs uppercase tracking-wider text-text-tertiary">
               Descripción
             </Text>
-            <Text className="mt-2 text-base font-sans text-text-primary leading-6">
+            <Text className="mt-2 font-sans text-base leading-6 text-text-primary">
               {tx.description}
             </Text>
           </View>
@@ -262,7 +265,7 @@ export default function ListingDetailScreen() {
 
         {tx.kind === 'package' && totalItems > 0 && (
           <View className="mt-6">
-            <Text className="text-xs font-sans-semibold uppercase tracking-wider text-text-tertiary">
+            <Text className="font-sans-semibold text-xs uppercase tracking-wider text-text-tertiary">
               {tx.items.length} cromos · {totalItems} unidades en total
             </Text>
           </View>
@@ -270,13 +273,13 @@ export default function ListingDetailScreen() {
 
         {tx.kind === 'auction' && (
           <View className="mt-6">
-            <Text className="mb-2 text-xs font-sans-semibold uppercase tracking-wider text-text-tertiary">
+            <Text className="mb-2 font-sans-semibold text-xs uppercase tracking-wider text-text-tertiary">
               Historial de ofertas
             </Text>
             {bids.isLoading ? (
               <Skeleton width="100%" height={56} rounded="md" />
             ) : (bids.data ?? []).length === 0 ? (
-              <Text className="text-sm font-sans text-text-tertiary">
+              <Text className="font-sans text-sm text-text-tertiary">
                 Todavía no hay ofertas. Sé el primero.
               </Text>
             ) : (
@@ -291,21 +294,21 @@ export default function ListingDetailScreen() {
                       <View className="flex-1 flex-row items-center gap-2">
                         {isTop && (
                           <View className="rounded-pill bg-text-primary px-2 py-0.5">
-                            <Text className="text-[10px] font-sans-bold text-bg tracking-wider">
+                            <Text className="font-sans-bold text-[10px] tracking-wider text-bg">
                               TOP
                             </Text>
                           </View>
                         )}
                         <View className="flex-1">
-                          <Text className="text-sm font-sans-semibold text-text-primary">
+                          <Text className="font-sans-semibold text-sm text-text-primary">
                             {b.bidder?.display_name ?? 'Anónimo'}
                           </Text>
-                          <Text className="text-xs font-sans text-text-tertiary">
+                          <Text className="font-sans text-xs text-text-tertiary">
                             {new Date(b.created_at).toLocaleString('es-ES')}
                           </Text>
                         </View>
                       </View>
-                      <Text className="text-base font-sans-black text-text-primary">
+                      <Text className="font-sans-black text-base text-text-primary">
                         {formatUsd(b.amount)}
                       </Text>
                     </View>
@@ -318,12 +321,12 @@ export default function ListingDetailScreen() {
 
         {isAuctionBlocked && tx.kind === 'auction' && !isSeller && (
           <Card variant="outline" className="mt-6 border-warning">
-            <Text className="text-xs font-sans-semibold uppercase tracking-wider text-warning">
+            <Text className="font-sans-semibold text-xs uppercase tracking-wider text-warning">
               Bloqueado
             </Text>
-            <Text className="mt-1 text-sm font-sans text-text-primary">
-              No puedes ofertar en subastas hasta el {formatShortDate(auctionBlockedUntil)}.
-              Tras cumplir el plazo podrás volver a participar.
+            <Text className="mt-1 font-sans text-sm text-text-primary">
+              No puedes ofertar en subastas hasta el {formatShortDate(auctionBlockedUntil)}. Tras
+              cumplir el plazo podrás volver a participar.
             </Text>
           </Card>
         )}
@@ -370,25 +373,19 @@ export default function ListingDetailScreen() {
   );
 }
 
-function Hero({
-  items,
-  kind,
-}: {
-  items: ListingItem[];
-  kind: string;
-}) {
+function Hero({ items, kind }: { items: ListingItem[]; kind: string }) {
   const first = items[0]?.catalog;
   if (!first) {
     return (
       <View className="mt-3 h-44 items-center justify-center rounded-lg bg-surface">
-        <Text className="text-sm font-sans text-text-tertiary">Sin imagen disponible</Text>
+        <Text className="font-sans text-sm text-text-tertiary">Sin imagen disponible</Text>
       </View>
     );
   }
 
   return (
     <View
-      className="mt-3 h-56 items-center justify-center rounded-lg overflow-hidden"
+      className="mt-3 h-56 items-center justify-center overflow-hidden rounded-lg"
       style={{ backgroundColor: first.stripe ?? '#444' }}
     >
       {first.accent && (
@@ -403,10 +400,10 @@ function Hero({
           }}
         />
       )}
-      <Text className="text-6xl font-sans-black text-white">
+      <Text className="font-sans-black text-6xl text-white">
         {first.jersey ?? (kind === 'package' ? items.length : '—')}
       </Text>
-      <Text className="mt-2 text-base font-sans-bold text-white uppercase tracking-wider">
+      <Text className="mt-2 font-sans-bold text-base uppercase tracking-wider text-white">
         {first.player_name ?? first.display_name}
       </Text>
       {first.country_code && (
@@ -495,12 +492,7 @@ function ListingActions({
     if (tx.status === 'reserved') {
       return (
         <View className="gap-2">
-          <Button
-            label="Reactivar"
-            size="lg"
-            loading={isMutating}
-            onPress={onResume}
-          />
+          <Button label="Reactivar" size="lg" loading={isMutating} onPress={onResume} />
           <Button
             label="Cancelar publicación"
             variant="ghost"
@@ -518,13 +510,7 @@ function ListingActions({
   if (tx.kind === 'auction') {
     if (auctionEnded) {
       return (
-        <Button
-          label="Subasta cerrada"
-          size="lg"
-          variant="secondary"
-          disabled
-          onPress={() => {}}
-        />
+        <Button label="Subasta cerrada" size="lg" variant="secondary" disabled onPress={() => {}} />
       );
     }
     return (
@@ -541,7 +527,9 @@ function ListingActions({
         <Button
           label="Hacer una oferta"
           size="lg"
-          variant={tx.buy_now_price != null && Number(tx.buy_now_price) > 0 ? 'secondary' : 'primary'}
+          variant={
+            tx.buy_now_price != null && Number(tx.buy_now_price) > 0 ? 'secondary' : 'primary'
+          }
           loading={isMutating}
           disabled={isAuctionBlocked}
           onPress={onBid}
@@ -553,23 +541,10 @@ function ListingActions({
   // sale / package
   if (tx.status !== 'active') {
     return (
-      <Button
-        label="No disponible"
-        size="lg"
-        variant="secondary"
-        disabled
-        onPress={() => {}}
-      />
+      <Button label="No disponible" size="lg" variant="secondary" disabled onPress={() => {}} />
     );
   }
-  return (
-    <Button
-      label="Solicitar compra"
-      size="lg"
-      loading={isMutating}
-      onPress={onPurchase}
-    />
-  );
+  return <Button label="Solicitar compra" size="lg" loading={isMutating} onPress={onPurchase} />;
 }
 
 function labelForKind(kind: string): string {

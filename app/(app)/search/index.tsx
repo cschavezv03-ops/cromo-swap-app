@@ -11,6 +11,7 @@ import {
 
 import { universities, universitiesById } from '@/features/auth/lib/universities';
 import { useSearchProfiles } from '@/features/profile/hooks/useSearchProfiles';
+import { track } from '@/lib/observability';
 import { useTheme } from '@/theme/ThemeProvider';
 import { Avatar, EmptyState, Screen, ScreenHeader, Skeleton } from '@/ui';
 
@@ -22,9 +23,15 @@ export default function SearchScreen() {
   const [uni, setUni] = useState<string | null>(null);
 
   useEffect(() => {
-    const t = setTimeout(() => setDebounced(input.trim()), 300);
+    const t = setTimeout(() => {
+      const q = input.trim();
+      setDebounced(q);
+      if (q.length >= 2 || uni) {
+        track('user_search', { has_query: q.length >= 2, has_university: Boolean(uni) });
+      }
+    }, 300);
     return () => clearTimeout(t);
-  }, [input]);
+  }, [input, uni]);
 
   const search = useSearchProfiles(debounced, uni);
   const results = search.data ?? [];

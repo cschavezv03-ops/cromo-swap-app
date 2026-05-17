@@ -4,12 +4,10 @@ import { ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-n
 
 import { universitiesById } from '@/features/auth/lib/universities';
 import { MatchableCromoCard } from '@/features/matches/components/MatchableCromoCard';
-import {
-  useMatchableCromos,
-  useProposeMatch,
-} from '@/features/matches/hooks/useMatches';
+import { useMatchableCromos, useProposeMatch } from '@/features/matches/hooks/useMatches';
 import { useMyMatches } from '@/features/matches/hooks/useMatches';
 import type { MatchableCromo } from '@/features/matches/data/match-detail';
+import { track } from '@/lib/observability';
 import { useTheme } from '@/theme/ThemeProvider';
 import { Button, Chip, EmptyState, Screen, ScreenHeader, Skeleton, useToast } from '@/ui';
 
@@ -38,13 +36,9 @@ export default function MatchDetailScreen() {
 
   const existingMatch = useMemo(() => {
     if (!counterpartyId) return null;
-    const fromSent = (sent.data ?? []).find(
-      (m) => m.counterparty?.id === counterpartyId,
-    );
+    const fromSent = (sent.data ?? []).find((m) => m.counterparty?.id === counterpartyId);
     if (fromSent) return { match: fromSent, direction: 'sent' as const };
-    const fromReceived = (received.data ?? []).find(
-      (m) => m.counterparty?.id === counterpartyId,
-    );
+    const fromReceived = (received.data ?? []).find((m) => m.counterparty?.id === counterpartyId);
     if (fromReceived) return { match: fromReceived, direction: 'received' as const };
     return null;
   }, [counterpartyId, sent.data, received.data]);
@@ -61,7 +55,7 @@ export default function MatchDetailScreen() {
   const isLoading = detail.isLoading;
   const data = detail.data;
   const cp = data?.counterparty;
-  const uni = cp?.university ? universitiesById[cp.university] ?? null : null;
+  const uni = cp?.university ? (universitiesById[cp.university] ?? null) : null;
   const iCanGive = data?.iCanGive ?? [];
   const iCanGet = data?.iCanGet ?? [];
 
@@ -81,6 +75,11 @@ export default function MatchDetailScreen() {
           give_cromo_ids: iCanGive.map((c) => c.id),
           get_cromo_ids: iCanGet.map((c) => c.id),
         },
+      });
+      track('match_proposed', {
+        match_type: matchType,
+        give_count: iCanGive.length,
+        get_count: iCanGet.length,
       });
       toast.show('Match propuesto. Te avisaremos cuando responda.', 'success');
       router.back();
@@ -105,7 +104,7 @@ export default function MatchDetailScreen() {
               <View
                 style={{ width: 7, height: 7, borderRadius: 3.5, backgroundColor: uni.color }}
               />
-              <Text className="text-[11px] font-sans-bold" style={{ color: uni.color }}>
+              <Text className="font-sans-bold text-[11px]" style={{ color: uni.color }}>
                 {uni.short}
               </Text>
             </View>
@@ -126,10 +125,10 @@ export default function MatchDetailScreen() {
                 className="mb-5 rounded-md bg-surface p-4"
                 style={{ borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border }}
               >
-                <Text className="text-xs font-sans-semibold uppercase tracking-wider text-text-tertiary">
+                <Text className="font-sans-semibold text-xs uppercase tracking-wider text-text-tertiary">
                   Estado del match
                 </Text>
-                <Text className="mt-1 text-base font-sans-bold text-text-primary">
+                <Text className="mt-1 font-sans-bold text-base text-text-primary">
                   {labelForMatch(existingMatch.match.status, existingMatch.direction)}
                 </Text>
               </View>
@@ -188,11 +187,11 @@ function Section({ title, count, empty, cromos, cardWidth }: SectionProps) {
   return (
     <View>
       <View className="mb-3 flex-row items-center justify-between">
-        <Text className="text-base font-sans-bold text-text-primary">{title}</Text>
+        <Text className="font-sans-bold text-base text-text-primary">{title}</Text>
         <Chip label={String(count)} size="sm" variant="default" />
       </View>
       {cromos.length === 0 ? (
-        <Text className="text-sm font-sans text-text-tertiary">{empty}</Text>
+        <Text className="font-sans text-sm text-text-tertiary">{empty}</Text>
       ) : (
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: GRID_GAP }}>
           {cromos.map((cromo) => (

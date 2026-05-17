@@ -11,7 +11,10 @@ import {
   type WhatsAppPromptHandle,
 } from '@/features/profile/components/WhatsAppPrompt';
 import { useMyWhatsApp } from '@/features/profile/hooks/useWhatsApp';
-import { RatingSheet, type RatingSheetHandle } from '@/features/transactions/components/RatingSheet';
+import {
+  RatingSheet,
+  type RatingSheetHandle,
+} from '@/features/transactions/components/RatingSheet';
 import { useMyRatingForTx } from '@/features/transactions/hooks/useRatings';
 import {
   useAcceptTransaction,
@@ -23,6 +26,7 @@ import type {
   TransactionDetail,
   TransactionItemEnriched,
 } from '@/features/transactions/data/transactions';
+import { track } from '@/lib/observability';
 import { supabase } from '@/lib/supabase';
 import { useQueryClient } from '@tanstack/react-query';
 import { whatsappUrl } from '@/shared/utils/whatsapp';
@@ -102,7 +106,7 @@ export default function TransactionDetailScreen() {
 
   const myId = user?.id ?? null;
   const counterparty = tx.my_role === 'initiator' ? tx.owner : tx.initiator;
-  const uni = counterparty?.university ? universitiesById[counterparty.university] ?? null : null;
+  const uni = counterparty?.university ? (universitiesById[counterparty.university] ?? null) : null;
 
   const offered = filterItems(tx, 'offered', myId);
   const requested = filterItems(tx, 'requested', myId);
@@ -124,6 +128,7 @@ export default function TransactionDetailScreen() {
   const doAccept = async () => {
     try {
       await acceptMut.mutateAsync(txId);
+      track('transaction_accepted', { transaction_id: txId });
       toast.show('Intercambio aceptado. Ya puedes contactar por WhatsApp.', 'success');
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'No se pudo aceptar el intercambio.';
@@ -145,6 +150,7 @@ export default function TransactionDetailScreen() {
   const handleComplete = async () => {
     try {
       await completeMut.mutateAsync(txId);
+      track('transaction_completed', { transaction_id: txId, role: tx?.my_role });
       toast.show('Intercambio marcado como realizado.', 'success');
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'No se pudo completar.';
@@ -194,7 +200,7 @@ export default function TransactionDetailScreen() {
               <View
                 style={{ width: 7, height: 7, borderRadius: 3.5, backgroundColor: uni.color }}
               />
-              <Text className="text-[11px] font-sans-bold" style={{ color: uni.color }}>
+              <Text className="font-sans-bold text-[11px]" style={{ color: uni.color }}>
                 {uni.short}
               </Text>
             </View>
@@ -217,20 +223,20 @@ export default function TransactionDetailScreen() {
             className="mt-6 rounded-md bg-surface p-4"
             style={{ borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border }}
           >
-            <Text className="text-xs font-sans-semibold uppercase tracking-wider text-text-tertiary">
+            <Text className="font-sans-semibold text-xs uppercase tracking-wider text-text-tertiary">
               Contacto
             </Text>
             {tx.counterparty_whatsapp ? (
               <>
-                <Text className="mt-2 text-base font-sans-bold text-text-primary">
+                <Text className="mt-2 font-sans-bold text-base text-text-primary">
                   {tx.counterparty_whatsapp}
                 </Text>
-                <Text className="mt-1 text-xs text-text-secondary font-sans">
+                <Text className="mt-1 font-sans text-xs text-text-secondary">
                   Acuerden lugar y hora para encontrarse.
                 </Text>
               </>
             ) : (
-              <Text className="mt-2 text-sm text-text-tertiary font-sans">
+              <Text className="mt-2 font-sans text-sm text-text-tertiary">
                 El contacto se revela cuando la otra persona también guarde su WhatsApp.
               </Text>
             )}
@@ -243,12 +249,10 @@ export default function TransactionDetailScreen() {
             style={{
               borderWidth: StyleSheet.hairlineWidth,
               borderColor: colors.border,
-              backgroundColor: myRating.data?.exists
-                ? colors.surface
-                : `${colors.warning}10`,
+              backgroundColor: myRating.data?.exists ? colors.surface : `${colors.warning}10`,
             }}
           >
-            <Text className="text-xs font-sans-semibold uppercase tracking-wider text-text-tertiary">
+            <Text className="font-sans-semibold text-xs uppercase tracking-wider text-text-tertiary">
               Calificación
             </Text>
             {myRating.data?.exists ? (
@@ -267,14 +271,14 @@ export default function TransactionDetailScreen() {
                   ))}
                 </View>
                 {myRating.data.comment && (
-                  <Text className="mt-2 text-sm font-sans text-text-secondary" numberOfLines={3}>
+                  <Text className="mt-2 font-sans text-sm text-text-secondary" numberOfLines={3}>
                     “{myRating.data.comment}”
                   </Text>
                 )}
               </>
             ) : (
               <>
-                <Text className="mt-2 text-sm font-sans text-text-primary">
+                <Text className="mt-2 font-sans text-sm text-text-primary">
                   ¿Cómo te fue? Tu calificación ayuda a otros usuarios.
                 </Text>
                 <View className="mt-3">
@@ -282,12 +286,8 @@ export default function TransactionDetailScreen() {
                     label="Calificar intercambio"
                     size="sm"
                     onPress={() => {
-                      const counterparty =
-                        tx.my_role === 'initiator' ? tx.owner : tx.initiator;
-                      ratingRef.current?.present(
-                        tx.id,
-                        counterparty?.display_name ?? 'Usuario',
-                      );
+                      const counterparty = tx.my_role === 'initiator' ? tx.owner : tx.initiator;
+                      ratingRef.current?.present(tx.id, counterparty?.display_name ?? 'Usuario');
                     }}
                   />
                 </View>
@@ -303,9 +303,7 @@ export default function TransactionDetailScreen() {
       >
         <ActionButtons
           tx={tx}
-          isMutating={
-            acceptMut.isPending || completeMut.isPending || cancelMut.isPending
-          }
+          isMutating={acceptMut.isPending || completeMut.isPending || cancelMut.isPending}
           onAccept={handleAccept}
           onReject={handleReject}
           onComplete={handleComplete}
@@ -339,9 +337,9 @@ function filterItems(
 function ItemsSection({ title, items }: { title: string; items: TransactionItemEnriched[] }) {
   return (
     <View className="mt-6">
-      <Text className="mb-3 text-base font-sans-bold text-text-primary">{title}</Text>
+      <Text className="mb-3 font-sans-bold text-base text-text-primary">{title}</Text>
       {items.length === 0 ? (
-        <Text className="text-sm font-sans text-text-tertiary">Sin cromos en esta sección.</Text>
+        <Text className="font-sans text-sm text-text-tertiary">Sin cromos en esta sección.</Text>
       ) : (
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
           {items.map((it) => {
@@ -350,12 +348,10 @@ function ItemsSection({ title, items }: { title: string; items: TransactionItemE
               return (
                 <View
                   key={it.id}
-                  className="rounded-md bg-surface p-2 border border-border"
+                  className="rounded-md border border-border bg-surface p-2"
                   style={{ width: 96 }}
                 >
-                  <Text className="text-[11px] font-sans-semibold text-text-secondary">
-                    Cromo
-                  </Text>
+                  <Text className="font-sans-semibold text-[11px] text-text-secondary">Cromo</Text>
                 </View>
               );
             }
@@ -426,12 +422,14 @@ function StatusBanner({ status }: { status: string }) {
   };
   return (
     <View className={`mt-2 rounded-md p-4 ${cfg.bg}`}>
-      <Text className={`text-xs font-sans-semibold uppercase tracking-wider ${cfg.text} opacity-90`}>
+      <Text
+        className={`font-sans-semibold text-xs uppercase tracking-wider ${cfg.text} opacity-90`}
+      >
         Estado
       </Text>
-      <Text className={`mt-1 text-xl font-sans-black ${cfg.text}`}>{cfg.label}</Text>
+      <Text className={`mt-1 font-sans-black text-xl ${cfg.text}`}>{cfg.label}</Text>
       {cfg.description ? (
-        <Text className={`mt-1 text-sm font-sans ${cfg.text} opacity-90`}>{cfg.description}</Text>
+        <Text className={`mt-1 font-sans text-sm ${cfg.text} opacity-90`}>{cfg.description}</Text>
       ) : null}
     </View>
   );
@@ -516,9 +514,7 @@ function ActionButtons({
     );
   }
   if (tx.status === 'cancelled') {
-    return (
-      <Button label="Cancelado" size="lg" variant="secondary" disabled onPress={() => {}} />
-    );
+    return <Button label="Cancelado" size="lg" variant="secondary" disabled onPress={() => {}} />;
   }
   return null;
 }

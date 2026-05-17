@@ -4,6 +4,7 @@ import { forwardRef, useImperativeHandle, useMemo, useRef, useState } from 'reac
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { useProfile } from '@/features/auth/hooks/useProfile';
+import { track } from '@/lib/observability';
 import { useTheme } from '@/theme/ThemeProvider';
 import { Button, Chip, Input, Sheet, useToast } from '@/ui';
 
@@ -167,6 +168,7 @@ export const CreateListingSheet = forwardRef<CreateListingSheetHandle, Props>(
             description: description.trim() || null,
           });
         }
+        track('listing_created', { kind, price, has_buy_now: kind === 'auction' && buyNowText ? true : undefined });
         toast.show('Publicación creada.', 'success');
         sheetRef.current?.dismiss();
         onCreated?.(id);

@@ -1,5 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
+import { track } from '@/lib/observability';
+
 import {
   fetchFriendshipStatus,
   fetchMyFriends,
@@ -56,7 +58,10 @@ export function useSendFriendRequest() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: sendFriendRequest,
-    onSuccess: () => invalidateAll(qc),
+    onSuccess: () => {
+      track('friend_request_sent');
+      invalidateAll(qc);
+    },
   });
 }
 
@@ -70,7 +75,14 @@ export function useRespondFriendRequest() {
       requestId: string;
       response: 'accepted' | 'rejected';
     }) => respondFriendRequest(requestId, response),
-    onSuccess: () => invalidateAll(qc),
+    onSuccess: (_data, variables) => {
+      if (variables.response === 'accepted') {
+        track('friend_accepted');
+      } else {
+        track('friend_rejected');
+      }
+      invalidateAll(qc);
+    },
   });
 }
 
@@ -78,6 +90,9 @@ export function useRemoveFriend() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: removeFriend,
-    onSuccess: () => invalidateAll(qc),
+    onSuccess: () => {
+      track('friend_removed');
+      invalidateAll(qc);
+    },
   });
 }

@@ -6,6 +6,7 @@ import { ScopePicker } from '@/features/auth/components/ScopePicker';
 import { useUpdateProfile } from '@/features/auth/hooks/useAuthMutations';
 import { useSession } from '@/features/auth/hooks/useSession';
 import { detectUniversityFromEmail } from '@/features/auth/lib/universities';
+import { identify, track } from '@/lib/observability';
 import { Button, Input, Screen, ThemePicker, useToast } from '@/ui';
 
 export default function ProfileSetupScreen() {
@@ -41,12 +42,19 @@ export default function ProfileSetupScreen() {
         university: detectedUni.id,
         scope: scopeIds,
       });
+      if (user?.id) {
+        identify(user.id, {
+          set: { display_name: name, university: detectedUni.id },
+          setOnce: { signup_date: new Date().toISOString() },
+        });
+      }
+      track('profile_created', {
+        university: detectedUni.id,
+        scope_count: scopeIds.length,
+      });
       router.replace('/(app)/(tabs)/album');
     } catch (err) {
-      toast.show(
-        err instanceof Error ? err.message : 'No se pudo guardar tu perfil.',
-        'danger',
-      );
+      toast.show(err instanceof Error ? err.message : 'No se pudo guardar tu perfil.', 'danger');
     }
   };
 
@@ -65,13 +73,13 @@ export default function ProfileSetupScreen() {
           }}
           keyboardShouldPersistTaps="handled"
         >
-          <Text className="text-[11px] font-sans-semibold uppercase tracking-[0.2em] text-text-tertiary">
+          <Text className="font-sans-semibold text-[11px] uppercase tracking-[0.2em] text-text-tertiary">
             Último paso
           </Text>
-          <Text className="mt-2 text-[32px] font-sans-black text-text-primary leading-[36px]">
+          <Text className="mt-2 font-sans-black text-[32px] leading-[36px] text-text-primary">
             Cuéntanos quién eres
           </Text>
-          <Text className="mt-3 text-[15px] text-text-secondary font-sans leading-[22px]">
+          <Text className="mt-3 font-sans text-[15px] leading-[22px] text-text-secondary">
             Esto es lo que ven otros usuarios cuando apareces en un match.
           </Text>
 
@@ -88,36 +96,29 @@ export default function ProfileSetupScreen() {
           </View>
 
           <View className="mt-7">
-            <Text className="mb-2 text-[11px] font-sans-semibold uppercase tracking-[0.18em] text-text-tertiary">
+            <Text className="mb-2 font-sans-semibold text-[11px] uppercase tracking-[0.18em] text-text-tertiary">
               Tu correo
             </Text>
             <View className="flex-row items-baseline">
-              <Text
-                className="flex-1 text-[16px] font-sans text-text-primary"
-                numberOfLines={1}
-              >
+              <Text className="flex-1 font-sans text-[16px] text-text-primary" numberOfLines={1}>
                 {user?.email}
               </Text>
               {detectedUni && (
                 <Text
-                  className="ml-3 text-[13px] font-sans-bold"
+                  className="ml-3 font-sans-bold text-[13px]"
                   style={{ color: detectedUni.color, letterSpacing: 0.3 }}
                 >
                   {detectedUni.short}
                 </Text>
               )}
             </View>
-            <Text className="mt-1.5 text-[12px] text-text-tertiary font-sans">
+            <Text className="mt-1.5 font-sans text-[12px] text-text-tertiary">
               Tu universidad se detecta automáticamente del dominio.
             </Text>
           </View>
 
           <View className="mt-9">
-            <ScopePicker
-              ownUniversity={detectedUni}
-              value={scopeIds}
-              onChange={setScopeIds}
-            />
+            <ScopePicker ownUniversity={detectedUni} value={scopeIds} onChange={setScopeIds} />
           </View>
 
           <View className="mt-9">

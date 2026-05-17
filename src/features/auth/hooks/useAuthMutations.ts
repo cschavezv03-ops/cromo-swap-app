@@ -23,56 +23,6 @@ export function useRequestOtp() {
   });
 }
 
-export function useVerifyOtp() {
-  return useMutation({
-    mutationFn: async ({ email, token }: { email: string; token: string }) => {
-      const { data, error } = await supabase.auth.verifyOtp({
-        email,
-        token,
-        type: 'email',
-      });
-      if (error) throw error;
-      return data;
-    },
-  });
-}
-
-export function useSetPassword() {
-  return useMutation({
-    mutationFn: async (password: string) => {
-      const { data, error } = await supabase.auth.updateUser({ password });
-      if (error) throw error;
-      return data;
-    },
-  });
-}
-
-export function useSignInWithPassword() {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: async ({ email, password }: { email: string; password: string }) => {
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email: email.trim().toLowerCase(),
-        password,
-      });
-      if (error) throw error;
-      // Tras login exitoso, descargar el inventario del usuario al storage
-      // local. Si falla la red, lo intentará de nuevo cuando AlbumScreen
-      // monte (best-effort).
-      try {
-        await pullRemoteInventory();
-      } catch {
-        /* best-effort; AlbumScreen reintenta on mount */
-      }
-      return data;
-    },
-    onSuccess: () => {
-      void qc.invalidateQueries({ queryKey: albumQueryKey });
-      void qc.invalidateQueries({ queryKey: ['profile'] });
-    },
-  });
-}
-
 export function useSignOut() {
   const qc = useQueryClient();
   return useMutation({

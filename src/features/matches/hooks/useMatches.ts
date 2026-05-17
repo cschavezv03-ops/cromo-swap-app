@@ -1,5 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
+import { track } from '@/lib/observability';
+
 import {
   fetchMatchSuggestions,
   fetchMyMatches,
@@ -56,7 +58,8 @@ export function useRespondMatch() {
   return useMutation({
     mutationFn: (args: { matchId: string; response: 'accepted' | 'rejected' }) =>
       respondMatch(args),
-    onSuccess: () => {
+    onSuccess: (_data, variables) => {
+      track(variables.response === 'accepted' ? 'match_accepted' : 'match_rejected');
       void qc.invalidateQueries({ queryKey: ['matches'] });
       void qc.invalidateQueries({ queryKey: ['transactions'] });
     },

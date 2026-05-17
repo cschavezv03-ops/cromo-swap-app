@@ -1,5 +1,5 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useRef } from 'react';
+import { useEffect, useRef } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 
 import { universitiesById } from '@/features/auth/lib/universities';
@@ -14,6 +14,7 @@ import { useIsBlocked, useUnblockUser } from '@/features/profile/hooks/useBlocks
 import { useFriendInventory } from '@/features/profile/hooks/useFriendInventory';
 import type { FriendCromo } from '@/features/profile/data/friend-inventory';
 import { useOtherProfile } from '@/features/profile/hooks/useOtherProfile';
+import { track } from '@/lib/observability';
 import { useTheme } from '@/theme/ThemeProvider';
 import { Avatar, Button, Card, EmptyState, ProgressRing, Screen, Skeleton, useToast } from '@/ui';
 
@@ -38,6 +39,12 @@ export default function OtherProfileScreen() {
 
   const repeated = useFriendInventory(id, 'repeated', isFriend);
   const missing = useFriendInventory(id, 'missing', isFriend);
+
+  useEffect(() => {
+    if (id && !isSelf) {
+      track('profile_view', { is_friend: isFriend });
+    }
+  }, [id, isSelf, isFriend]);
 
   const handleUnblock = async () => {
     if (!id) return;

@@ -1,4 +1,4 @@
-import { Link, useRouter } from 'expo-router';
+import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import { KeyboardAvoidingView, Platform, Pressable, Text, View } from 'react-native';
 
@@ -9,12 +9,13 @@ import {
   detectUniversityFromEmail,
   isValidInstitutionalEmail,
 } from '@/features/auth/lib/universities';
+import { track } from '@/lib/observability';
 import { Button, Input, Screen, useToast } from '@/ui';
 
 export default function EmailScreen() {
   const router = useRouter();
   const toast = useToast();
-  const requestOtp = useRequestOtp();
+  const requestMagicLink = useRequestOtp();
 
   const [email, setEmail] = useState('');
   const [touched, setTouched] = useState(false);
@@ -29,11 +30,12 @@ export default function EmailScreen() {
     setTouched(true);
     if (!valid) return;
     try {
-      await requestOtp.mutateAsync(trimmed);
-      router.push({ pathname: '/(auth)/verify', params: { email: trimmed } });
+      await requestMagicLink.mutateAsync(trimmed);
+      track('magic_link_requested', { university: university?.id ?? null });
+      router.push({ pathname: '/(auth)/link-sent', params: { email: trimmed } });
     } catch (err) {
       toast.show(
-        err instanceof Error ? err.message : 'No se pudo enviar el código. Inténtalo de nuevo.',
+        err instanceof Error ? err.message : 'No se pudo enviar el enlace. Inténtalo de nuevo.',
         'danger',
       );
     }
@@ -46,14 +48,26 @@ export default function EmailScreen() {
         style={{ flex: 1 }}
       >
         <View className="flex-1 px-6 pt-10">
-          <Text className="text-xs font-sans-semibold uppercase tracking-[0.18em] text-text-tertiary">
-            Mundial 2026
+          <Pressable
+            onPress={() => router.back()}
+            hitSlop={8}
+            className="-ml-1 mb-3 h-9 w-9 items-center justify-center rounded-pill"
+          >
+            <Text className="text-xl text-text-primary">←</Text>
+          </Pressable>
+
+          <Text className="font-sans-semibold text-[11px] uppercase tracking-[0.18em] text-text-tertiary">
+            Tu correo
           </Text>
-          <Text className="mt-2 text-3xl font-sans-black text-text-primary">
-            Empieza tu álbum
+          <Text
+            className="mt-2 font-sans-black text-text-primary"
+            style={{ fontSize: 28, lineHeight: 34, letterSpacing: -0.6 }}
+          >
+            ¿Cuál es tu correo{'\n'}universitario?
           </Text>
-          <Text className="mt-3 text-base text-text-secondary font-sans">
-            Te enviamos un código a tu correo universitario para crear tu cuenta o iniciar sesión.
+          <Text className="mt-3 font-sans text-text-secondary" style={{ fontSize: 15 }}>
+            Te enviamos un enlace mágico. Tócalo desde tu teléfono y entras a la app — sin
+            contraseñas, sin códigos.
           </Text>
 
           <View className="mt-8 gap-4">
@@ -79,29 +93,12 @@ export default function EmailScreen() {
 
           <View className="mt-10">
             <Button
-              label={requestOtp.isPending ? 'Enviando código…' : 'Continuar'}
-              loading={requestOtp.isPending}
-              disabled={!valid || requestOtp.isPending}
+              label={requestMagicLink.isPending ? 'Enviando enlace…' : 'Enviar enlace mágico'}
+              loading={requestMagicLink.isPending}
+              disabled={!valid || requestMagicLink.isPending}
               onPress={onContinue}
               size="lg"
             />
-          </View>
-
-          <View className="mt-auto pb-6">
-            <Pressable hitSlop={8}>
-              <Link href="/(auth)/sign-in" className="text-center text-text-secondary font-sans">
-                ¿Ya tienes cuenta?{' '}
-                <Text className="text-accent font-sans-semibold">Inicia sesión</Text>
-              </Link>
-            </Pressable>
-            {__DEV__ && (
-              <Link
-                href="/dev/ui"
-                className="mt-4 text-center text-xs text-text-tertiary font-sans"
-              >
-                · dev · UI playground
-              </Link>
-            )}
           </View>
         </View>
       </KeyboardAvoidingView>

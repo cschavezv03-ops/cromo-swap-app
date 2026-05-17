@@ -46,7 +46,7 @@ export default function PerfilTab() {
   const handleSignOut = async () => {
     try {
       await signOut.mutateAsync();
-      router.replace('/(auth)/email');
+      router.replace('/(auth)/welcome');
     } catch (err) {
       toast.show(err instanceof Error ? err.message : 'No se pudo cerrar sesión.', 'danger');
     }

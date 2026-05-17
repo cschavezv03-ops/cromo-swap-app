@@ -4,7 +4,10 @@ import { useMemo, useRef, useState } from 'react';
 import { Pressable, RefreshControl, Text, View } from 'react-native';
 
 import { ListingCard } from '@/features/marketplace/components/ListingCard';
-import { ListingFilters, type ListingKindFilter } from '@/features/marketplace/components/ListingFilters';
+import {
+  ListingFilters,
+  type ListingKindFilter,
+} from '@/features/marketplace/components/ListingFilters';
 import {
   CreateListingSheet,
   type CreateListingSheetHandle,
@@ -12,6 +15,7 @@ import {
 import { useActiveListings } from '@/features/marketplace/hooks/useListings';
 import { useMarketplaceRealtime } from '@/features/marketplace/hooks/useMarketplaceRealtime';
 import type { ListingSummary } from '@/features/marketplace/data/listings';
+import { track } from '@/lib/observability';
 import { EmptyState, Input, Screen, ScreenHeader, Skeleton, useToast } from '@/ui';
 
 export default function MercadoTab() {
@@ -24,10 +28,7 @@ export default function MercadoTab() {
   // Realtime: invalida marketplace cuando alguien publica.
   useMarketplaceRealtime();
 
-  const filters = useMemo(
-    () => ({ kind, search: search.trim() }),
-    [kind, search],
-  );
+  const filters = useMemo(() => ({ kind, search: search.trim() }), [kind, search]);
   const listings = useActiveListings(filters);
 
   const data = listings.data ?? [];
@@ -35,9 +36,10 @@ export default function MercadoTab() {
   const renderItem: ListRenderItem<ListingSummary> = ({ item }) => (
     <ListingCard
       listing={item}
-      onPress={() =>
-        router.push({ pathname: '/(app)/listing/[id]', params: { id: item.id } })
-      }
+      onPress={() => {
+        track('listing_view', { listing_id: item.id, kind: item.kind });
+        router.push({ pathname: '/(app)/listing/[id]', params: { id: item.id } });
+      }}
     />
   );
 
@@ -47,11 +49,14 @@ export default function MercadoTab() {
         title="Mercado"
         rightSlot={
           <Pressable
-            onPress={() => createSheet.current?.present()}
+            onPress={() => {
+              track('create_listing_tapped');
+              createSheet.current?.present();
+            }}
             hitSlop={8}
-            className="h-9 px-3.5 items-center justify-center rounded-pill bg-text-primary"
+            className="h-9 items-center justify-center rounded-pill bg-text-primary px-3.5"
           >
-            <Text className="text-[13px] font-sans-semibold text-bg">+  Publicar</Text>
+            <Text className="font-sans-semibold text-[13px] text-bg">+ Publicar</Text>
           </Pressable>
         }
       />
@@ -71,7 +76,7 @@ export default function MercadoTab() {
       </View>
 
       {listings.isLoading ? (
-        <View className="px-5 gap-3 mt-2">
+        <View className="mt-2 gap-3 px-5">
           {Array.from({ length: 5 }).map((_, i) => (
             <Skeleton key={i} width="100%" height={108} rounded="md" />
           ))}

@@ -22,7 +22,7 @@ export default function AppLayout() {
 
   // 2) Sin sesión → flujo de auth.
   if (!session) {
-    return <Redirect href="/(auth)/email" />;
+    return <Redirect href="/(auth)/welcome" />;
   }
 
   // 3) Con sesión, esperar a que el perfil se resuelva.

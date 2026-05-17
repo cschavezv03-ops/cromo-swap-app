@@ -4,6 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import { forwardRef, useImperativeHandle, useMemo, useRef, useState } from 'react';
 import { Dimensions, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
+import { track } from '@/lib/observability';
 import { cn } from '@/shared/utils/cn';
 import { Button, FlagDot, Sheet, useToast } from '@/ui';
 import { useTheme } from '@/theme/ThemeProvider';
@@ -47,6 +48,7 @@ export const SobreSheet = forwardRef<SobreSheetHandle>(function SobreSheet(_, re
       setTally({});
       setRawCode('');
       setSearch('');
+      track('sobre_opened');
       inner.current?.present();
     },
   }));

@@ -1,5 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
+import { track } from '@/lib/observability';
+
 import { buyNowAuction, fetchBidsForListing, fetchMyBids, placeBid } from '../data/bids';
 
 const KEYS = {
@@ -28,7 +30,8 @@ export function usePlaceBid(listingId: string) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (amount: number) => placeBid({ listingId, amount }),
-    onSuccess: () => {
+    onSuccess: (_data, amount) => {
+      track('bid_placed', { listing_id: listingId, amount });
       void qc.invalidateQueries({ queryKey: KEYS.forListing(listingId) });
       void qc.invalidateQueries({ queryKey: ['marketplace', 'detail', listingId] });
       void qc.invalidateQueries({ queryKey: ['marketplace', 'active'] });
