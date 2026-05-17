@@ -1,5 +1,5 @@
 -- =============================================================================
--- Migration: 0045_admin_rpcs.sql
+-- Migration: 0059_admin_rpcs.sql
 -- Purpose:   SECURITY DEFINER RPCs that the admin panel can call as
 --            authenticated (no service-role required). Every RPC guards on
 --            private.is_admin() at the top — non-admins get a permission

@@ -1,5 +1,5 @@
 -- =============================================================================
--- Migration: 0042_reports.sql
+-- Migration: 0056_reports.sql
 -- Purpose:   User-submitted reports against users / listings / transactions /
 --            cromos. Backbone of the moderation queue exposed in the admin
 --            panel. Reporter can create + read their own reports; admins

@@ -1,5 +1,5 @@
 -- =============================================================================
--- Migration: 0047_broadcasts.sql
+-- Migration: 0061_broadcasts.sql
 -- Purpose:   Broadcast metadata table for admin-sent mass notifications.
 --            One row per broadcast; the actual notification rows live in
 --            public.notifications. Used to:

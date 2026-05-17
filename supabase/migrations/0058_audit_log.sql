@@ -1,5 +1,5 @@
 -- =============================================================================
--- Migration: 0044_audit_log.sql
+-- Migration: 0058_audit_log.sql
 -- Purpose:   Immutable audit log for every administrative action performed
 --            via the admin panel. Each row records: who acted (actor_id +
 --            denormalized actor_email), what action, on what target, and

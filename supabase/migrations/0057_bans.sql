@@ -1,5 +1,5 @@
 -- =============================================================================
--- Migration: 0043_bans.sql
+-- Migration: 0057_bans.sql
 -- Purpose:   Generalized ban system. Extends the existing single-purpose
 --            profiles.auction_blocked_until field with a proper bans table
 --            that supports multiple scopes (auction, trade, sale, all),
@@ -62,10 +62,12 @@ CREATE TABLE IF NOT EXISTS public.bans (
   )
 );
 
--- Partial index over active bans only — keeps the hot-path is_banned() lookups fast.
+-- Partial index over not-yet-lifted bans (cannot use now() in predicate as it
+-- isn't IMMUTABLE). The is_banned() helper still filters expires_at at runtime;
+-- the index narrows the candidate set efficiently.
 CREATE INDEX IF NOT EXISTS bans_user_scope_active_idx
-  ON public.bans (user_id, scope)
-  WHERE lifted_at IS NULL AND (expires_at IS NULL OR expires_at > now());
+  ON public.bans (user_id, scope, expires_at)
+  WHERE lifted_at IS NULL;
 
 CREATE INDEX IF NOT EXISTS bans_user_id_idx     ON public.bans (user_id);
 CREATE INDEX IF NOT EXISTS bans_banned_by_idx   ON public.bans (banned_by) WHERE banned_by IS NOT NULL;

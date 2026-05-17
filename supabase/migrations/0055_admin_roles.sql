@@ -1,5 +1,5 @@
 -- =============================================================================
--- Migration: 0041_admin_roles.sql
+-- Migration: 0055_admin_roles.sql
 -- Purpose:   Admin role assignment table + private.is_admin() helper.
 --            Backbone for the admin web panel: identifies which users have
 --            administrative privileges and at what level. Used by Server

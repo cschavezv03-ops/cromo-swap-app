@@ -1,5 +1,5 @@
 -- =============================================================================
--- Migration: 0046_admin_views.sql
+-- Migration: 0060_admin_views.sql
 -- Purpose:   Read-only views and materialized views used by the admin panel
 --            dashboard for KPI computation. Materialized views are refreshed
 --            on demand by a Server Action in the panel (Next.js) — pg_cron
@@ -137,7 +137,8 @@ SELECT
   avg(l.price) FILTER (WHERE l.kind = 'sale' AND l.price IS NOT NULL) AS avg_sale_price
 FROM public.catalog_cromos cc
 LEFT JOIN public.rarities r ON r.id = cc.rarity_id
-LEFT JOIN public.listings  l ON l.cromo_id = cc.id
+LEFT JOIN public.listing_items li ON li.cromo_id = cc.id
+LEFT JOIN public.listings  l ON l.id = li.listing_id
 GROUP BY cc.rarity_id, r.label, r.sort_order
 ORDER BY r.sort_order NULLS LAST;
 
