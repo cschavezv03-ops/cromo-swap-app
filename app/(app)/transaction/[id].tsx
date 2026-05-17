@@ -11,6 +11,8 @@ import {
   type WhatsAppPromptHandle,
 } from '@/features/profile/components/WhatsAppPrompt';
 import { useMyWhatsApp } from '@/features/profile/hooks/useWhatsApp';
+import { RatingSheet, type RatingSheetHandle } from '@/features/transactions/components/RatingSheet';
+import { useMyRatingForTx } from '@/features/transactions/hooks/useRatings';
 import {
   useAcceptTransaction,
   useCancelTransaction,
@@ -38,10 +40,12 @@ export default function TransactionDetailScreen() {
 
   const detail = useTransaction(txId);
   const myWhatsApp = useMyWhatsApp();
+  const myRating = useMyRatingForTx(txId);
   const acceptMut = useAcceptTransaction();
   const completeMut = useCompleteTransaction();
   const cancelMut = useCancelTransaction();
   const promptRef = useRef<WhatsAppPromptHandle>(null);
+  const ratingRef = useRef<RatingSheetHandle>(null);
 
   // Realtime: refrescar al detectar UPDATE sobre la transacción.
   useEffect(() => {
@@ -232,6 +236,65 @@ export default function TransactionDetailScreen() {
             )}
           </View>
         )}
+
+        {tx.status === 'completed' && !myRating.isLoading && (
+          <View
+            className="mt-4 rounded-md p-4"
+            style={{
+              borderWidth: StyleSheet.hairlineWidth,
+              borderColor: colors.border,
+              backgroundColor: myRating.data?.exists
+                ? colors.surface
+                : `${colors.warning}10`,
+            }}
+          >
+            <Text className="text-xs font-sans-semibold uppercase tracking-wider text-text-tertiary">
+              Calificación
+            </Text>
+            {myRating.data?.exists ? (
+              <>
+                <View className="mt-2 flex-row items-center gap-1">
+                  {Array.from({ length: 5 }).map((_, i) => (
+                    <Text
+                      key={i}
+                      style={{
+                        fontSize: 18,
+                        color: i < (myRating.data?.stars ?? 0) ? colors.warning : colors.border,
+                      }}
+                    >
+                      ★
+                    </Text>
+                  ))}
+                </View>
+                {myRating.data.comment && (
+                  <Text className="mt-2 text-sm font-sans text-text-secondary" numberOfLines={3}>
+                    “{myRating.data.comment}”
+                  </Text>
+                )}
+              </>
+            ) : (
+              <>
+                <Text className="mt-2 text-sm font-sans text-text-primary">
+                  ¿Cómo te fue? Tu calificación ayuda a otros usuarios.
+                </Text>
+                <View className="mt-3">
+                  <Button
+                    label="Calificar intercambio"
+                    size="sm"
+                    onPress={() => {
+                      const counterparty =
+                        tx.my_role === 'initiator' ? tx.owner : tx.initiator;
+                      ratingRef.current?.present(
+                        tx.id,
+                        counterparty?.display_name ?? 'Usuario',
+                      );
+                    }}
+                  />
+                </View>
+              </>
+            )}
+          </View>
+        )}
       </ScrollView>
 
       <View
@@ -252,6 +315,7 @@ export default function TransactionDetailScreen() {
       </View>
 
       <WhatsAppPrompt ref={promptRef} />
+      <RatingSheet ref={ratingRef} onCreated={() => myRating.refetch()} />
     </Screen>
   );
 }

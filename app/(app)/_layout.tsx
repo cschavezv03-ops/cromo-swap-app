@@ -3,6 +3,7 @@ import { ActivityIndicator, View } from 'react-native';
 
 import { isProfileComplete, useProfile } from '@/features/auth/hooks/useProfile';
 import { useSession } from '@/features/auth/hooks/useSession';
+import { useRegisterPushToken } from '@/features/notifications/hooks/useRegisterPushToken';
 import { useRealtimeBridge } from '@/features/transactions/hooks/useRealtimeBridge';
 
 export default function AppLayout() {
@@ -11,6 +12,8 @@ export default function AppLayout() {
   // Suscribe queries de matches/transactions/notifications a cambios en
   // tiempo real apenas haya sesión. Sale silencioso si no hay user.
   useRealtimeBridge();
+  // Pide permisos y registra Expo push token en profiles.expo_push_token.
+  useRegisterPushToken();
 
   // 1) Esperar la sesión inicial.
   if (sessionLoading) {

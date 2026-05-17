@@ -52,6 +52,13 @@ const config: ExpoConfig = {
         photosPermission: 'La app necesita acceder a tu galería para subir tu avatar.',
       },
     ],
+    [
+      'expo-notifications',
+      {
+        icon: './assets/icon.png',
+        color: '#0B0B0E',
+      },
+    ],
   ],
   experiments: {
     typedRoutes: true,
