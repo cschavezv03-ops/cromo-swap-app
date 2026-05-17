@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
-import { fetchBidsForListing, fetchMyBids, placeBid } from '../data/bids';
+import { buyNowAuction, fetchBidsForListing, fetchMyBids, placeBid } from '../data/bids';
 
 const KEYS = {
   forListing: (listingId: string) => ['marketplace', 'bids', listingId] as const,
@@ -33,6 +33,19 @@ export function usePlaceBid(listingId: string) {
       void qc.invalidateQueries({ queryKey: ['marketplace', 'detail', listingId] });
       void qc.invalidateQueries({ queryKey: ['marketplace', 'active'] });
       void qc.invalidateQueries({ queryKey: KEYS.mine() });
+    },
+  });
+}
+
+export function useBuyNowAuction(listingId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () => buyNowAuction(listingId),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: KEYS.forListing(listingId) });
+      void qc.invalidateQueries({ queryKey: ['marketplace', 'detail', listingId] });
+      void qc.invalidateQueries({ queryKey: ['marketplace', 'active'] });
+      void qc.invalidateQueries({ queryKey: ['transactions'] });
     },
   });
 }

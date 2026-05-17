@@ -11,7 +11,7 @@ import {
   type BidSheetHandle,
 } from '@/features/marketplace/components/BidSheet';
 import { ListingPriceTag } from '@/features/marketplace/components/ListingPriceTag';
-import { useBidsForListing } from '@/features/marketplace/hooks/useBids';
+import { useBidsForListing, useBuyNowAuction } from '@/features/marketplace/hooks/useBids';
 import {
   useCancelListing,
   useCloseAuction,
@@ -48,6 +48,7 @@ export default function ListingDetailScreen() {
   const resumeMut = useResumeListing();
   const closeMut = useCloseAuction();
   const purchaseMut = useCreatePurchaseRequest();
+  const buyNowMut = useBuyNowAuction(listingId ?? '');
 
   useListingDetailRealtime(listingId);
 
@@ -151,6 +152,31 @@ export default function ListingDetailScreen() {
       return;
     }
     bidSheet.current?.present();
+  };
+
+  const handleBuyNow = async () => {
+    if (isAuctionBlocked) {
+      toast.show(
+        `Estás bloqueado para subastas hasta el ${formatShortDate(auctionBlockedUntil)}.`,
+        'warning',
+      );
+      return;
+    }
+    if (!myWhatsApp.data?.whatsapp_phone) {
+      whatsappPrompt.current?.present({ onComplete: () => void doBuyNow() });
+      return;
+    }
+    await doBuyNow();
+  };
+
+  const doBuyNow = async () => {
+    try {
+      const txId = await buyNowMut.mutateAsync();
+      toast.show('Compra confirmada. Espera la aceptación del vendedor.', 'success');
+      router.push({ pathname: '/(app)/transaction/[id]', params: { id: txId } });
+    } catch (err) {
+      toast.show(messageForPurchaseError(asMsg(err)), 'danger');
+    }
   };
 
   const handlePause = async () => {
@@ -315,7 +341,8 @@ export default function ListingDetailScreen() {
             resumeMut.isPending ||
             cancelMut.isPending ||
             purchaseMut.isPending ||
-            closeMut.isPending
+            closeMut.isPending ||
+            buyNowMut.isPending
           }
           auctionEnded={auctionEnded}
           isAuctionBlocked={isAuctionBlocked}
@@ -324,6 +351,7 @@ export default function ListingDetailScreen() {
           onCancel={handleCancel}
           onPurchase={handleRequestPurchase}
           onBid={handleBid}
+          onBuyNow={handleBuyNow}
         />
       </View>
 
@@ -406,6 +434,7 @@ function ListingActions({
   onCancel,
   onPurchase,
   onBid,
+  onBuyNow,
 }: {
   tx: NonNullable<ReturnType<typeof useListingDetail>['data']>;
   isSeller: boolean;
@@ -417,6 +446,7 @@ function ListingActions({
   onCancel: () => void;
   onPurchase: () => void;
   onBid: () => void;
+  onBuyNow: () => void;
 }) {
   if (tx.status === 'cancelled' || tx.status === 'completed') {
     return (
@@ -498,13 +528,25 @@ function ListingActions({
       );
     }
     return (
-      <Button
-        label="Hacer una oferta"
-        size="lg"
-        loading={isMutating}
-        disabled={isAuctionBlocked}
-        onPress={onBid}
-      />
+      <View className="gap-2">
+        {tx.buy_now_price != null && Number(tx.buy_now_price) > 0 && (
+          <Button
+            label={`Comprar ya por ${formatUsd(Number(tx.buy_now_price))}`}
+            size="lg"
+            loading={isMutating}
+            disabled={isAuctionBlocked}
+            onPress={onBuyNow}
+          />
+        )}
+        <Button
+          label="Hacer una oferta"
+          size="lg"
+          variant={tx.buy_now_price != null && Number(tx.buy_now_price) > 0 ? 'secondary' : 'primary'}
+          loading={isMutating}
+          disabled={isAuctionBlocked}
+          onPress={onBid}
+        />
+      </View>
     );
   }
 

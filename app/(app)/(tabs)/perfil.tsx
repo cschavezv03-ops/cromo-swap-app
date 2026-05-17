@@ -17,7 +17,7 @@ import {
 } from '@/features/profile/components/WhatsAppPrompt';
 import { useUnreadNotificationsCount } from '@/features/notifications/hooks/useNotifications';
 import { useTheme } from '@/theme/ThemeProvider';
-import { Button, Card, Chip, ProgressRing, Screen, ScreenHeader, ThemePicker, useToast } from '@/ui';
+import { Avatar, Button, Card, Chip, ProgressRing, Screen, ScreenHeader, ThemePicker, useToast } from '@/ui';
 
 export default function PerfilTab() {
   const router = useRouter();
@@ -58,11 +58,11 @@ export default function PerfilTab() {
       <ScrollView contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 40, gap: 16 }}>
         <Card variant="elevated">
           <View className="flex-row items-center gap-4">
-            <View className="h-16 w-16 items-center justify-center rounded-pill bg-surface">
-              <Text className="text-2xl font-sans-bold text-text-primary">
-                {profile?.display_name?.[0]?.toUpperCase() ?? '?'}
-              </Text>
-            </View>
+            <Avatar
+              url={profile?.avatar_url ?? null}
+              name={profile?.display_name ?? ''}
+              size={64}
+            />
             <View className="flex-1">
               <Text className="text-xl font-sans-bold text-text-primary">
                 {profile?.display_name ?? '—'}

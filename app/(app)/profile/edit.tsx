@@ -6,6 +6,7 @@ import { ScopePicker } from '@/features/auth/components/ScopePicker';
 import { useUpdateProfile } from '@/features/auth/hooks/useAuthMutations';
 import { useProfile } from '@/features/auth/hooks/useProfile';
 import { universitiesById } from '@/features/auth/lib/universities';
+import { AvatarPicker } from '@/features/profile/components/AvatarPicker';
 import { Button, Input, Screen, useToast } from '@/ui';
 
 export default function ProfileEditScreen() {
@@ -70,6 +71,9 @@ export default function ProfileEditScreen() {
         </View>
 
         <ScrollView contentContainerStyle={{ paddingHorizontal: 24, paddingTop: 8, paddingBottom: 40 }}>
+          <View className="items-center pb-6 pt-2">
+            <AvatarPicker size={104} />
+          </View>
           <View className="gap-5">
             <Input
               label="Nombre completo"

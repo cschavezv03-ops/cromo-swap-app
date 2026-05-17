@@ -2,9 +2,11 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { universitiesById } from '@/features/auth/lib/universities';
 import { useTheme } from '@/theme/ThemeProvider';
+import { Avatar } from '@/ui';
 
 type Props = {
   displayName: string;
+  avatarUrl?: string | null;
   universityId: string | null;
   albumPct?: number | null;
   isLast?: boolean;
@@ -14,6 +16,7 @@ type Props = {
 
 export function FriendRow({
   displayName,
+  avatarUrl,
   universityId,
   albumPct,
   isLast = false,
@@ -36,20 +39,7 @@ export function FriendRow({
         borderBottomColor: colors.border,
       }}
     >
-      <View
-        style={{
-          width: 40,
-          height: 40,
-          borderRadius: 20,
-          alignItems: 'center',
-          justifyContent: 'center',
-          backgroundColor: colors.surface,
-        }}
-      >
-        <Text className="text-base font-sans-bold text-text-primary">
-          {displayName?.[0]?.toUpperCase() ?? '?'}
-        </Text>
-      </View>
+      <Avatar url={avatarUrl} name={displayName} size={40} />
 
       <View style={{ flex: 1, marginLeft: 12 }}>
         <Text

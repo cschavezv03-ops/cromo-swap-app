@@ -11,8 +11,11 @@ import {
   type BlockSheetHandle,
 } from '@/features/profile/components/BlockSheet';
 import { useIsBlocked, useUnblockUser } from '@/features/profile/hooks/useBlocks';
+import { useFriendInventory } from '@/features/profile/hooks/useFriendInventory';
+import type { FriendCromo } from '@/features/profile/data/friend-inventory';
 import { useOtherProfile } from '@/features/profile/hooks/useOtherProfile';
-import { Button, Card, EmptyState, ProgressRing, Screen, Skeleton, useToast } from '@/ui';
+import { useTheme } from '@/theme/ThemeProvider';
+import { Avatar, Button, Card, EmptyState, ProgressRing, Screen, Skeleton, useToast } from '@/ui';
 
 export default function OtherProfileScreen() {
   const router = useRouter();
@@ -32,6 +35,9 @@ export default function OtherProfileScreen() {
   const albumPct = stats && stats.total > 0 ? (stats.have + stats.repeated) / stats.total : 0;
   const uni = profile?.university ? universitiesById[profile.university] : null;
   const isFriend = friendship.data?.status === 'friends';
+
+  const repeated = useFriendInventory(id, 'repeated', isFriend);
+  const missing = useFriendInventory(id, 'missing', isFriend);
 
   const handleUnblock = async () => {
     if (!id) return;
@@ -79,11 +85,11 @@ export default function OtherProfileScreen() {
             {/* Encabezado: avatar + nombre + uni — visible siempre */}
             <Card variant="elevated">
               <View className="flex-row items-center gap-4">
-                <View className="h-16 w-16 items-center justify-center rounded-pill bg-surface">
-                  <Text className="text-2xl font-sans-bold text-text-primary">
-                    {profile.display_name?.[0]?.toUpperCase() ?? '?'}
-                  </Text>
-                </View>
+                <Avatar
+                  url={profile.avatar_url ?? null}
+                  name={profile.display_name ?? ''}
+                  size={64}
+                />
                 <View className="flex-1">
                   <Text className="text-xl font-sans-bold text-text-primary">
                     {profile.display_name ?? '—'}
@@ -132,6 +138,26 @@ export default function OtherProfileScreen() {
               </View>
             </Card>
 
+            {/* Inventario visible solo a amigos */}
+            {isFriend && (
+              <>
+                <FriendInventorySection
+                  title="Sus repetidos disponibles"
+                  emptyHint="No tiene repetidos disponibles para intercambiar."
+                  data={repeated.data ?? []}
+                  isLoading={repeated.isLoading}
+                  variant="repeated"
+                />
+                <FriendInventorySection
+                  title="Lo que le falta"
+                  emptyHint="¡Ya completó el álbum!"
+                  data={missing.data ?? []}
+                  isLoading={missing.isLoading}
+                  variant="missing"
+                />
+              </>
+            )}
+
             {/* Acciones */}
             {!isSelf && !blocked.data && (
               <View className="gap-2">
@@ -176,5 +202,105 @@ export default function OtherProfileScreen() {
 
       <BlockSheet ref={blockSheet} onBlocked={() => router.back()} />
     </Screen>
+  );
+}
+
+type FriendInventorySectionProps = {
+  title: string;
+  emptyHint: string;
+  data: FriendCromo[];
+  isLoading: boolean;
+  variant: 'repeated' | 'missing';
+};
+
+function FriendInventorySection({
+  title,
+  emptyHint,
+  data,
+  isLoading,
+  variant,
+}: FriendInventorySectionProps) {
+  const { colors } = useTheme();
+  return (
+    <View>
+      <Text className="mb-2 px-1 text-[11px] font-sans-semibold uppercase tracking-[0.18em] text-text-tertiary">
+        {title} {!isLoading && data.length > 0 && `(${data.length})`}
+      </Text>
+      {isLoading ? (
+        <Skeleton width="100%" height={120} rounded="lg" />
+      ) : data.length === 0 ? (
+        <Text className="text-xs font-sans text-text-tertiary">{emptyHint}</Text>
+      ) : (
+        <View className="flex-row flex-wrap" style={{ marginHorizontal: -3 }}>
+          {data.slice(0, 60).map((c) => (
+            <View
+              key={c.cromo_id}
+              style={{
+                width: '25%',
+                padding: 3,
+              }}
+            >
+              <View
+                style={{
+                  borderWidth: 1,
+                  borderColor: variant === 'missing' ? colors.borderStrong : colors.border,
+                  borderStyle: variant === 'missing' ? 'dashed' : 'solid',
+                  borderRadius: 8,
+                  padding: 6,
+                  minHeight: 64,
+                  backgroundColor: variant === 'missing' ? 'transparent' : colors.surfaceElev,
+                }}
+              >
+                <Text
+                  className="text-[10px] font-sans-semibold text-text-secondary"
+                  numberOfLines={1}
+                >
+                  {c.printed_code}
+                </Text>
+                <Text
+                  className="mt-0.5 text-[13px] font-mono text-text-primary"
+                  numberOfLines={1}
+                >
+                  {c.jersey ?? '·'}
+                </Text>
+                <Text
+                  className="mt-0.5 text-[9px] font-sans text-text-tertiary"
+                  numberOfLines={1}
+                >
+                  {c.player_name ?? c.display_name}
+                </Text>
+                {variant === 'repeated' && c.owned_quantity >= 2 && (
+                  <View
+                    style={{
+                      position: 'absolute',
+                      top: 4,
+                      right: 4,
+                      backgroundColor: colors.textPrimary,
+                      paddingHorizontal: 5,
+                      borderRadius: 999,
+                    }}
+                  >
+                    <Text
+                      style={{
+                        fontSize: 9,
+                        fontWeight: '700',
+                        color: colors.bg,
+                      }}
+                    >
+                      x{c.owned_quantity}
+                    </Text>
+                  </View>
+                )}
+              </View>
+            </View>
+          ))}
+        </View>
+      )}
+      {data.length > 60 && (
+        <Text className="mt-2 text-[11px] font-sans text-text-tertiary">
+          Mostrando los primeros 60 de {data.length}.
+        </Text>
+      )}
+    </View>
   );
 }

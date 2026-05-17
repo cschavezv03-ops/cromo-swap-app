@@ -3,10 +3,11 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { universitiesById } from '@/features/auth/lib/universities';
 import { cn } from '@/shared/utils/cn';
 import { useTheme } from '@/theme/ThemeProvider';
-import { Chip } from '@/ui';
+import { Avatar, Chip } from '@/ui';
 
 type Props = {
   displayName: string;
+  avatarUrl?: string | null;
   universityId: string | null;
   giveCount: number;
   getCount: number;
@@ -38,6 +39,7 @@ const TONE_CLASS: Record<NonNullable<Props['statusTone']>, string> = {
  */
 export function MatchRow({
   displayName,
+  avatarUrl,
   universityId,
   giveCount,
   getCount,
@@ -48,7 +50,6 @@ export function MatchRow({
 }: Props) {
   const { colors } = useTheme();
   const uni = universityId ? universitiesById[universityId] ?? null : null;
-  const initial = displayName.trim()[0]?.toUpperCase() ?? '?';
   const typeLabel = matchType ? MATCH_TYPE_LABEL[matchType] ?? matchType : null;
 
   return (
@@ -60,8 +61,8 @@ export function MatchRow({
         borderBottomColor: colors.border,
       }}
     >
-      <View className="mr-3 h-11 w-11 items-center justify-center rounded-pill bg-surface">
-        <Text className="text-base font-sans-bold text-text-primary">{initial}</Text>
+      <View className="mr-3">
+        <Avatar url={avatarUrl} name={displayName} size={44} />
       </View>
 
       <View className="flex-1">

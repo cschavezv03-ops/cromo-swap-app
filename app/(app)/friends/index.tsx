@@ -95,6 +95,7 @@ export default function FriendsScreen() {
                 <FriendRow
                   key={f.friendship_id}
                   displayName={f.profile.display_name}
+                  avatarUrl={f.profile.avatar_url}
                   universityId={f.profile.university}
                   albumPct={f.profile.album_pct}
                   isLast={i === arr.length - 1}
@@ -121,6 +122,7 @@ export default function FriendsScreen() {
                   <FriendRow
                     key={f.friendship_id}
                     displayName={f.profile.display_name}
+                    avatarUrl={f.profile.avatar_url}
                     universityId={f.profile.university}
                     albumPct={f.profile.album_pct}
                     isLast={i === arr.length - 1}
@@ -161,6 +163,7 @@ export default function FriendsScreen() {
                   <FriendRow
                     key={f.friendship_id}
                     displayName={f.profile.display_name}
+                    avatarUrl={f.profile.avatar_url}
                     universityId={f.profile.university}
                     albumPct={f.profile.album_pct}
                     isLast={i === arr.length - 1}

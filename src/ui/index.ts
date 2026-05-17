@@ -1,3 +1,4 @@
+export { Avatar } from './Avatar';
 export { Button } from './Button';
 export { Card, PressableCard } from './Card';
 export { Chip } from './Chip';

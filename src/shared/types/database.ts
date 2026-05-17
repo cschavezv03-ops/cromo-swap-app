@@ -203,8 +203,10 @@ export type Database = {
         Row: {
           album_pct: number | null;
           auction_blocked_until: string | null;
+          avatar_url: string | null;
           created_at: string;
           display_name: string;
+          expo_push_token: string | null;
           id: string;
           is_anonymous: boolean;
           scope: string[];
@@ -366,6 +368,41 @@ export type Database = {
         Returns: string;
       };
       fn_respond_match: { Args: { p_match_id: string; p_response: string }; Returns: string };
+      fn_send_friend_request: { Args: { p_target: string }; Returns: string };
+      fn_respond_friend_request: {
+        Args: { p_request_id: string; p_response: string };
+        Returns: undefined;
+      };
+      fn_remove_friend: { Args: { p_other: string }; Returns: undefined };
+      fn_create_rating: {
+        Args: { p_transaction_id: string; p_stars: number; p_comment?: string | null };
+        Returns: string;
+      };
+      fn_set_push_token: { Args: { p_token: string }; Returns: undefined };
+      fn_search_profiles: {
+        Args: { p_query: string; p_university?: string | null; p_limit?: number };
+        Returns: Array<{
+          id: string;
+          display_name: string;
+          university: string | null;
+          album_pct: number | null;
+          avatar_url: string | null;
+          is_friend: boolean;
+        }>;
+      };
+      fn_buy_now_auction: { Args: { p_listing_id: string }; Returns: string };
+      fn_friend_inventory: {
+        Args: { p_user_id: string; p_kind: string; p_limit?: number };
+        Returns: Array<{
+          cromo_id: string;
+          printed_code: string;
+          jersey: number | null;
+          display_name: string;
+          player_name: string | null;
+          country_code: string | null;
+          owned_quantity: number;
+        }>;
+      };
     };
   };
 };

@@ -3,12 +3,12 @@ import type { Json, Tables, Views } from '@/shared/types/database';
 
 /** Row de `matches_suggestions` enriquecida con el perfil del candidato. */
 export type MatchSuggestion = Views<'matches_suggestions'> & {
-  profile: Pick<Tables<'profiles'>, 'id' | 'display_name' | 'university'> | null;
+  profile: Pick<Tables<'profiles'>, 'id' | 'display_name' | 'university' | 'avatar_url'> | null;
 };
 
 /** Match guardado en `matches` con el perfil del otro usuario y mi rol. */
 export type MatchRow = Tables<'matches'> & {
-  counterparty: Pick<Tables<'profiles'>, 'id' | 'display_name' | 'university'> | null;
+  counterparty: Pick<Tables<'profiles'>, 'id' | 'display_name' | 'university' | 'avatar_url'> | null;
   /** `'a'` si yo soy `user_a_id`, `'b'` si soy `user_b_id`. */
   role: 'a' | 'b';
 };
@@ -35,7 +35,7 @@ export async function fetchMatchSuggestions(): Promise<MatchSuggestion[]> {
 
   const { data: profiles, error: pErr } = await supabase
     .from('profiles')
-    .select('id, display_name, university')
+    .select('id, display_name, university, avatar_url')
     .in('id', ids);
   if (pErr) throw pErr;
 
@@ -79,7 +79,7 @@ export async function fetchMyMatches(direction: MatchDirection): Promise<MatchRo
 
   const { data: profiles, error: pErr } = await supabase
     .from('profiles')
-    .select('id, display_name, university')
+    .select('id, display_name, university, avatar_url')
     .in('id', otherIds);
   if (pErr) throw pErr;
 

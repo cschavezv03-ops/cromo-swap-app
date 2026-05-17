@@ -16,6 +16,7 @@ export type FriendProfile = {
   display_name: string;
   university: string | null;
   album_pct: number | null;
+  avatar_url: string | null;
 };
 
 export type FriendItem = {
@@ -35,8 +36,8 @@ export async function fetchMyFriends(): Promise<FriendItem[]> {
     .from('friendships')
     .select(
       'id, requester_id, addressee_id, status, created_at, responded_at, ' +
-        'requester:profiles!friendships_requester_id_fkey(id,display_name,university,album_pct),' +
-        'addressee:profiles!friendships_addressee_id_fkey(id,display_name,university,album_pct)',
+        'requester:profiles!friendships_requester_id_fkey(id,display_name,university,album_pct,avatar_url),' +
+        'addressee:profiles!friendships_addressee_id_fkey(id,display_name,university,album_pct,avatar_url)',
     )
     .eq('status', 'accepted')
     .or(`requester_id.eq.${me},addressee_id.eq.${me}`)
@@ -75,7 +76,7 @@ export async function fetchPendingIn(): Promise<FriendItem[]> {
     .from('friendships')
     .select(
       'id, status, created_at, ' +
-        'requester:profiles!friendships_requester_id_fkey(id,display_name,university,album_pct)',
+        'requester:profiles!friendships_requester_id_fkey(id,display_name,university,album_pct,avatar_url)',
     )
     .eq('status', 'pending')
     .eq('addressee_id', me)
@@ -107,7 +108,7 @@ export async function fetchPendingOut(): Promise<FriendItem[]> {
     .from('friendships')
     .select(
       'id, status, created_at, ' +
-        'addressee:profiles!friendships_addressee_id_fkey(id,display_name,university,album_pct)',
+        'addressee:profiles!friendships_addressee_id_fkey(id,display_name,university,album_pct,avatar_url)',
     )
     .eq('status', 'pending')
     .eq('requester_id', me)

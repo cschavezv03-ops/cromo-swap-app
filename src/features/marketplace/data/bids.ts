@@ -18,6 +18,16 @@ export async function placeBid(args: {
   return data as string;
 }
 
+/** Compra inmediata de una subasta al precio `buy_now_price`. Devuelve el transaction_id. */
+export async function buyNowAuction(listingId: string): Promise<string> {
+  const { data, error } = await supabase.rpc('fn_buy_now_auction', {
+    p_listing_id: listingId,
+  });
+  if (error) throw error;
+  if (!data) throw new Error('No se pudo procesar la compra.');
+  return data as string;
+}
+
 export async function fetchBidsForListing(listingId: string): Promise<AuctionBid[]> {
   const { data, error } = await supabase
     .from('auction_bids')
