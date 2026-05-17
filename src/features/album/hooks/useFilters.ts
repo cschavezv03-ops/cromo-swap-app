@@ -8,16 +8,20 @@ import type { FilterTab } from '../lib/types';
 type FiltersState = {
   tab: FilterTab;
   selectedCountries: string[]; // ISO codes; empty = all
+  search: string;
   hydrated: boolean;
   setTab: (tab: FilterTab) => void;
   toggleCountry: (code: string) => void;
   clearCountries: () => void;
+  setSearch: (q: string) => void;
+  clearSearch: () => void;
   hydrate: () => void;
 };
 
 export const useFiltersStore = create<FiltersState>((set, get) => ({
   tab: 'all',
   selectedCountries: [],
+  search: '',
   hydrated: false,
   setTab: (tab) => {
     set({ tab });
@@ -34,6 +38,8 @@ export const useFiltersStore = create<FiltersState>((set, get) => ({
     set({ selectedCountries: [] });
     kv.set(KvKey.album.selectedCountries, '[]');
   },
+  setSearch: (q) => set({ search: q }),
+  clearSearch: () => set({ search: '' }),
   hydrate: () => {
     const t = kv.getString(KvKey.album.lastFilter);
     const raw = kv.getString(KvKey.album.selectedCountries);

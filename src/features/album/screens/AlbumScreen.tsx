@@ -17,6 +17,7 @@ import { CountryChips } from '../components/CountryChips';
 import { CromoCard } from '../components/CromoCard';
 import { CromoSheet, type CromoSheetHandle } from '../components/CromoSheet';
 import { FilterTabs } from '../components/FilterTabs';
+import { SearchBar } from '../components/SearchBar';
 import { SobreSheet, type SobreSheetHandle } from '../components/SobreSheet';
 import { loadAllCountries } from '../data/catalog';
 import { pullRemoteInventory } from '../data/inventory';
@@ -69,7 +70,10 @@ export function AlbumScreen() {
   const toggleCountry = useFiltersStore((s) => s.toggleCountry);
   const clearCountries = useFiltersStore((s) => s.clearCountries);
 
-  const { sections, stats, isLoading } = useFilteredAlbum();
+  const { sections, stats, isLoading, isSearching } = useFilteredAlbum();
+  const search = useFiltersStore((s) => s.search);
+  const setSearch = useFiltersStore((s) => s.setSearch);
+  const clearSearch = useFiltersStore((s) => s.clearSearch);
   const cromoSheetRef = useRef<CromoSheetHandle>(null);
   const sobreSheetRef = useRef<SobreSheetHandle>(null);
   const inc = useIncrementOwned();
@@ -185,6 +189,10 @@ export function AlbumScreen() {
         }
       />
 
+      <View className="pb-2">
+        <SearchBar value={search} onChange={setSearch} />
+      </View>
+
       <View className="pb-3">
         <FilterTabs current={tab} stats={stats} onChange={setTab} />
       </View>
@@ -200,9 +208,12 @@ export function AlbumScreen() {
       {items.length === 0 ? (
         <EmptyStateView
           isLoading={isLoading}
+          isSearching={isSearching}
+          query={search}
           onClear={() => {
             setTab('all');
             clearCountries();
+            clearSearch();
           }}
         />
       ) : (
@@ -231,9 +242,13 @@ export function AlbumScreen() {
 
 function EmptyStateView({
   isLoading,
+  isSearching,
+  query,
   onClear,
 }: {
   isLoading: boolean;
+  isSearching: boolean;
+  query: string;
   onClear: () => void;
 }) {
   return (
@@ -241,7 +256,9 @@ function EmptyStateView({
       <Text className="text-text-secondary text-center font-sans">
         {isLoading
           ? 'Cargando tu álbum…'
-          : 'Nada para mostrar con los filtros actuales.'}
+          : isSearching
+            ? `No encontramos cromos para "${query.trim()}".`
+            : 'Nada para mostrar con los filtros actuales.'}
       </Text>
       {!isLoading && (
         <Pressable

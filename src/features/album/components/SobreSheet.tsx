@@ -15,6 +15,8 @@ import {
 
 import { loadAllCountries } from '../data/catalog';
 import { useBulkAddSobre } from '../hooks/useInventoryMutation';
+import { catalogMatchesQuery, normalize } from '../lib/search';
+import { SearchBar } from './SearchBar';
 
 export type SobreSheetHandle = {
   present: () => void;
@@ -34,6 +36,7 @@ export const SobreSheet = forwardRef<SobreSheetHandle>(function SobreSheet(_, re
   const [selectedCountry, setSelectedCountry] = useState<string | null>(null);
   const [tally, setTally] = useState<Record<string, number>>({});
   const [rawCode, setRawCode] = useState('');
+  const [search, setSearch] = useState('');
   const [busy, setBusy] = useState(false);
 
   useImperativeHandle(ref, () => ({
@@ -42,6 +45,7 @@ export const SobreSheet = forwardRef<SobreSheetHandle>(function SobreSheet(_, re
       setSelectedCountry(null);
       setTally({});
       setRawCode('');
+      setSearch('');
       inner.current?.present();
     },
   }));
@@ -152,6 +156,8 @@ export const SobreSheet = forwardRef<SobreSheetHandle>(function SobreSheet(_, re
             tally={tally}
             onInc={incTally}
             onDec={decTally}
+            search={search}
+            onSearchChange={setSearch}
           />
         ) : (
           <CodeMode rawCode={rawCode} setRawCode={setRawCode} />
@@ -225,6 +231,8 @@ type CountryModeProps = {
   tally: Record<string, number>;
   onInc: (cromoId: string) => void;
   onDec: (cromoId: string) => void;
+  search: string;
+  onSearchChange: (q: string) => void;
 };
 
 function CountryMode({
@@ -234,10 +242,15 @@ function CountryMode({
   tally,
   onInc,
   onDec,
+  search,
+  onSearchChange,
 }: CountryModeProps) {
-  const cromos = useQuery({
+  const hasSearch = normalize(search).length > 0;
+
+  // Cromos del país seleccionado (cuando NO hay búsqueda).
+  const byCountry = useQuery({
     queryKey: ['album', 'cromosByCountry', selectedCountry ?? ''],
-    enabled: Boolean(selectedCountry),
+    enabled: Boolean(selectedCountry) && !hasSearch,
     queryFn: async () => {
       if (!selectedCountry) return [];
       const db = await getDatabase();
@@ -249,6 +262,43 @@ function CountryMode({
     staleTime: 1000 * 60 * 60,
   });
 
+  // Catálogo completo en cache (lo cargamos una sola vez cuando hay búsqueda).
+  const allCromos = useQuery({
+    queryKey: ['album', 'cromosAll'],
+    enabled: hasSearch,
+    queryFn: async () => {
+      const db = await getDatabase();
+      return db.getAllAsync<CatalogCromoLocal>(
+        `SELECT * FROM catalog_cromos_local ORDER BY section_code, section_number ASC`,
+      );
+    },
+    staleTime: 1000 * 60 * 60,
+  });
+
+  const countryByCode = useMemo(() => {
+    const m = new Map<string, CountryLocal>();
+    for (const c of countries) m.set(c.code, c);
+    return m;
+  }, [countries]);
+
+  // Lista visible: si hay búsqueda, filtramos el catálogo completo (limit 200).
+  // Si no, mostramos los del país seleccionado.
+  const visibleCromos = useMemo<CatalogCromoLocal[]>(() => {
+    if (hasSearch) {
+      const all = allCromos.data ?? [];
+      const out: CatalogCromoLocal[] = [];
+      for (const c of all) {
+        const countryName = c.country_code ? countryByCode.get(c.country_code)?.name : undefined;
+        if (catalogMatchesQuery(c, search, countryName)) {
+          out.push(c);
+          if (out.length >= 200) break;
+        }
+      }
+      return out;
+    }
+    return byCountry.data ?? [];
+  }, [hasSearch, allCromos.data, byCountry.data, search, countryByCode]);
+
   const cardWidth = useMemo(() => {
     const w = Dimensions.get('window').width - 40 - CARD_GAP * (COLS - 1);
     return Math.floor(w / COLS);
@@ -257,41 +307,57 @@ function CountryMode({
   const countryMeta = countries.find((c) => c.code === selectedCountry) ?? null;
 
   return (
-    <View style={{ flex: 1, marginTop: 16 }}>
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={{ gap: 8, paddingBottom: 4 }}
-      >
-        {countries.map((c) => {
-          const isOn = c.code === selectedCountry;
-          return (
-            <Pressable
-              key={c.code}
-              onPress={() => onSelectCountry(c.code)}
-              className={cn(
-                'flex-row items-center gap-1.5 px-3 h-9 rounded-pill',
-                isOn ? 'bg-text-primary' : 'bg-surface',
-              )}
-            >
-              <FlagDot code={c.code} color={c.stripe} accentColor={c.accent} size="sm" />
-              <Text
-                className={cn(
-                  'text-xs font-sans-semibold',
-                  isOn ? 'text-bg' : 'text-text-secondary',
-                )}
-              >
-                {c.code}
-              </Text>
-            </Pressable>
-          );
-        })}
-      </ScrollView>
+    <View style={{ flex: 1, marginTop: 12 }}>
+      <SearchBar value={search} onChange={onSearchChange} compact placeholder="Buscar jugador, país o número…" />
 
-      {countryMeta && (
-        <View className="mt-4 flex-row items-center gap-2">
-          <Text className="text-2xl">{countryMeta.flag_emoji}</Text>
-          <Text className="text-base font-sans-bold text-text-primary">{countryMeta.name}</Text>
+      {!hasSearch && (
+        <View style={{ marginTop: 12 }}>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={{ gap: 8, paddingBottom: 4 }}
+          >
+            {countries.map((c) => {
+              const isOn = c.code === selectedCountry;
+              return (
+                <Pressable
+                  key={c.code}
+                  onPress={() => onSelectCountry(c.code)}
+                  className={cn(
+                    'flex-row items-center gap-1.5 px-3 h-9 rounded-pill',
+                    isOn ? 'bg-text-primary' : 'bg-surface',
+                  )}
+                >
+                  <FlagDot code={c.code} color={c.stripe} accentColor={c.accent} size="sm" />
+                  <Text
+                    className={cn(
+                      'text-xs font-sans-semibold',
+                      isOn ? 'text-bg' : 'text-text-secondary',
+                    )}
+                  >
+                    {c.code}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </ScrollView>
+
+          {countryMeta && (
+            <View className="mt-4 flex-row items-center gap-2">
+              <Text className="text-2xl">{countryMeta.flag_emoji}</Text>
+              <Text className="text-base font-sans-bold text-text-primary">{countryMeta.name}</Text>
+            </View>
+          )}
+        </View>
+      )}
+
+      {hasSearch && (
+        <View style={{ marginTop: 10 }}>
+          <Text className="text-xs font-sans-medium text-text-tertiary">
+            {visibleCromos.length === 0
+              ? `Sin resultados para "${search.trim()}".`
+              : `${visibleCromos.length} resultado${visibleCromos.length === 1 ? '' : 's'}`}
+          </Text>
         </View>
       )}
 
@@ -304,14 +370,17 @@ function CountryMode({
           gap: CARD_GAP,
         }}
       >
-        {cromos.data?.map((c) => {
+        {visibleCromos.map((c) => {
           const count = tally[c.id] ?? 0;
+          const stripe = c.country_code
+            ? (countryByCode.get(c.country_code)?.stripe ?? '#9CA3AF')
+            : '#9CA3AF';
           return (
             <CromoTallyCard
               key={c.id}
               cromo={c}
               count={count}
-              stripe={countryMeta?.stripe ?? '#9CA3AF'}
+              stripe={stripe}
               width={cardWidth}
               onPress={() => onInc(c.id)}
               onLongPress={() => count > 0 && onDec(c.id)}

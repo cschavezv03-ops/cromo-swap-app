@@ -3,6 +3,7 @@ import { useMemo } from 'react';
 
 import { loadAllCountries, loadAllCromos } from '../data/catalog';
 import { readAllInventory } from '../data/inventory';
+import { matchesQuery } from '../lib/search';
 import { useFiltersStore } from './useFilters';
 import type {
   AlbumCromo,
@@ -107,11 +108,15 @@ export function useAlbumData() {
   });
 }
 
-/** Apply filter + country selection on top of the query result. */
-export function useFilteredAlbum(): AlbumData & { isLoading: boolean } {
+/** Apply filter + country selection + search query on top of the query result. */
+export function useFilteredAlbum(): AlbumData & {
+  isLoading: boolean;
+  isSearching: boolean;
+} {
   const { data, isLoading } = useAlbumData();
   const tab = useFiltersStore((s) => s.tab);
   const selectedCountries = useFiltersStore((s) => s.selectedCountries);
+  const search = useFiltersStore((s) => s.search);
 
   return useMemo(() => {
     if (!data) {
@@ -119,15 +124,22 @@ export function useFilteredAlbum(): AlbumData & { isLoading: boolean } {
         sections: [],
         stats: { total: 0, have: 0, missing: 0, repeated: 0 },
         isLoading,
+        isSearching: search.trim().length > 0,
       };
     }
 
     const wantCountries = selectedCountries.length === 0 ? null : new Set(selectedCountries);
+    const hasSearch = search.trim().length > 0;
 
     const filteredSections: CountrySectionData[] = [];
     for (const section of data.sections) {
       if (wantCountries && !wantCountries.has(section.country.code)) continue;
-      const cromos = section.cromos.filter((c) => matchesTab(c.status, tab));
+
+      const cromos = section.cromos.filter((c) => {
+        if (!matchesTab(c.status, tab)) return false;
+        if (hasSearch && !matchesQuery(c, search, section.country.name)) return false;
+        return true;
+      });
       if (cromos.length === 0) continue;
       const haveCount = cromos.filter((c) => c.status !== 'missing').length;
       filteredSections.push({
@@ -142,8 +154,9 @@ export function useFilteredAlbum(): AlbumData & { isLoading: boolean } {
       sections: filteredSections,
       stats: data.stats,
       isLoading,
+      isSearching: hasSearch,
     };
-  }, [data, tab, selectedCountries, isLoading]);
+  }, [data, tab, selectedCountries, search, isLoading]);
 }
 
 function matchesTab(status: AlbumCromo['status'], tab: FilterTab): boolean {
