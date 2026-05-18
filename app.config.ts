@@ -3,6 +3,7 @@ import type { ExpoConfig } from 'expo/config';
 const config: ExpoConfig = {
   name: 'Cromo Swap',
   slug: 'cromo-swap-app',
+  owner: 'daxrpm',
   version: '0.1.0',
   orientation: 'portrait',
   icon: './assets/icon.png',
