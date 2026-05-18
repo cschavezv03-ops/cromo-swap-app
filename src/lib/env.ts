@@ -4,7 +4,7 @@ import { z } from 'zod';
 const EnvSchema = z.object({
   EXPO_PUBLIC_SUPABASE_URL: z.string().url(),
   EXPO_PUBLIC_SUPABASE_ANON_KEY: z.string().min(1),
-  EXPO_PUBLIC_OTP_LENGTH: z.coerce.number().int().min(4).max(10).default(6),
+  EXPO_PUBLIC_OTP_LENGTH: z.coerce.number().int().min(4).max(10).default(8),
 });
 
 const raw = {
@@ -16,7 +16,7 @@ const raw = {
     process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY ??
     (Constants.expoConfig?.extra?.supabaseAnonKey as string | undefined) ??
     '',
-  EXPO_PUBLIC_OTP_LENGTH: process.env.EXPO_PUBLIC_OTP_LENGTH ?? '6',
+  EXPO_PUBLIC_OTP_LENGTH: process.env.EXPO_PUBLIC_OTP_LENGTH ?? '8',
 };
 
 const parsed = EnvSchema.safeParse(raw);
@@ -34,7 +34,7 @@ export const env = parsed.success
   : {
       EXPO_PUBLIC_SUPABASE_URL: '',
       EXPO_PUBLIC_SUPABASE_ANON_KEY: '',
-      EXPO_PUBLIC_OTP_LENGTH: 6,
+      EXPO_PUBLIC_OTP_LENGTH: 8,
     };
 
 export const SUPABASE_URL = env.EXPO_PUBLIC_SUPABASE_URL;

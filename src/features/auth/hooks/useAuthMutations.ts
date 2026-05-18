@@ -6,6 +6,11 @@ import { resetUserData } from '@/features/storage/db';
 import { pullRemoteInventory } from '@/features/album/data/inventory';
 import { albumQueryKey } from '@/features/album/hooks/useAlbumData';
 
+/**
+ * Solicita un OTP por email para iniciar sesión via magic link / código.
+ * Por default `shouldCreateUser: false` — usado solo para login alternativo
+ * de cuentas existentes. Para signup nuevo, usar `useSignUpWithPassword`.
+ */
 export function useRequestOtp() {
   return useMutation({
     mutationFn: async (email: string) => {
@@ -13,9 +18,103 @@ export function useRequestOtp() {
       const { error } = await supabase.auth.signInWithOtp({
         email: trimmed,
         options: {
-          shouldCreateUser: true,
+          shouldCreateUser: false,
           emailRedirectTo: 'cromoswap://auth/callback',
         },
+      });
+      if (error) throw error;
+      return { email: trimmed };
+    },
+  });
+}
+
+/**
+ * Signup nuevo: crea cuenta con email+password. Supabase envía un email
+ * con OTP que debe ser verificado con `useVerifyOtp` (type='signup').
+ */
+export function useSignUpWithPassword() {
+  return useMutation({
+    mutationFn: async ({ email, password }: { email: string; password: string }) => {
+      const trimmed = email.trim().toLowerCase();
+      const { data, error } = await supabase.auth.signUp({
+        email: trimmed,
+        password,
+        options: { emailRedirectTo: 'cromoswap://auth/callback' },
+      });
+      if (error) throw error;
+      return { email: trimmed, data };
+    },
+  });
+}
+
+/**
+ * Verifica el OTP enviado al email tras signup o magic-link request.
+ * - `type: 'signup'` para confirmar email post signup
+ * - `type: 'email'` para magic link/OTP de login
+ */
+export function useVerifyOtp() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      email,
+      token,
+      type = 'email',
+    }: {
+      email: string;
+      token: string;
+      type?: 'email' | 'signup' | 'magiclink' | 'recovery';
+    }) => {
+      const { data, error } = await supabase.auth.verifyOtp({
+        email,
+        token,
+        type,
+      });
+      if (error) throw error;
+      try {
+        await pullRemoteInventory();
+      } catch {
+        /* best-effort */
+      }
+      return data;
+    },
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: albumQueryKey });
+      void qc.invalidateQueries({ queryKey: ['profile'] });
+    },
+  });
+}
+
+/** Login con email+password. */
+export function useSignInWithPassword() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ email, password }: { email: string; password: string }) => {
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email: email.trim().toLowerCase(),
+        password,
+      });
+      if (error) throw error;
+      try {
+        await pullRemoteInventory();
+      } catch {
+        /* best-effort */
+      }
+      return data;
+    },
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: albumQueryKey });
+      void qc.invalidateQueries({ queryKey: ['profile'] });
+    },
+  });
+}
+
+/** Pide reset de contraseña. Manda email con OTP para recuperar. */
+export function useResetPassword() {
+  return useMutation({
+    mutationFn: async (email: string) => {
+      const trimmed = email.trim().toLowerCase();
+      const { error } = await supabase.auth.resetPasswordForEmail(trimmed, {
+        redirectTo: 'cromoswap://auth/callback',
       });
       if (error) throw error;
       return { email: trimmed };

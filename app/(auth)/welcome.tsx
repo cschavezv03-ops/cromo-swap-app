@@ -13,9 +13,7 @@ export default function WelcomeScreen() {
       <View className="flex-1 px-7" style={{ justifyContent: 'space-between' }}>
         {/* Top: marca + tagline */}
         <View className="pt-10">
-          <Text
-            className="font-sans-semibold text-[11px] uppercase tracking-[0.32em] text-text-tertiary"
-          >
+          <Text className="font-sans-semibold text-[11px] uppercase tracking-[0.32em] text-text-tertiary">
             Mundial 2026
           </Text>
           <Text
@@ -28,37 +26,33 @@ export default function WelcomeScreen() {
             className="mt-4 font-sans text-text-secondary"
             style={{ fontSize: 17, lineHeight: 24 }}
           >
-            Tu álbum, tus repetidos y tus amigos de la universidad
-            — en un solo lugar.
+            Tu álbum, tus repetidos y tus amigos de la universidad — en un solo lugar.
           </Text>
         </View>
 
-        {/* Middle: tres value props verticales */}
+        {/* Middle: tres value props */}
         <View className="gap-5">
           <ValueProp
             number="01"
             title="Trackeá tu álbum"
             description="1013 cromos del Mundial. Sin papel ni planillas."
-            color={colors.textPrimary}
           />
           <ValueProp
             number="02"
             title="Intercambiá lo que te falta"
             description="Matches automáticos con gente que tiene tus repetidos."
-            color={colors.textPrimary}
           />
           <ValueProp
             number="03"
             title="Vende y comprá"
             description="Subastas y publicaciones dentro de tu universidad."
-            color={colors.textPrimary}
           />
         </View>
 
-        {/* Bottom: CTA + footer */}
+        {/* Bottom: 2 CTAs */}
         <View className="pb-8">
           <Pressable
-            onPress={() => router.push('/(auth)/email')}
+            onPress={() => router.push('/(auth)/sign-up')}
             android_ripple={{ color: colors.surface }}
             style={{
               backgroundColor: colors.textPrimary,
@@ -71,13 +65,31 @@ export default function WelcomeScreen() {
               className="font-sans-semibold"
               style={{ color: colors.bg, fontSize: 16, letterSpacing: 0.3 }}
             >
-              Empezar
+              Crear cuenta
             </Text>
           </Pressable>
 
-          <Text
-            className="mt-4 text-center font-sans text-[12px] text-text-tertiary"
+          <Pressable
+            onPress={() => router.push('/(auth)/sign-in')}
+            android_ripple={{ color: colors.surface }}
+            style={{
+              marginTop: 10,
+              borderRadius: 999,
+              paddingVertical: 16,
+              alignItems: 'center',
+              borderWidth: 1,
+              borderColor: colors.border,
+            }}
           >
+            <Text
+              className="font-sans-semibold text-text-primary"
+              style={{ fontSize: 16, letterSpacing: 0.3 }}
+            >
+              Ya tengo cuenta
+            </Text>
+          </Pressable>
+
+          <Text className="mt-4 text-center font-sans text-[12px] text-text-tertiary">
             Solo correos institucionales de universidades de Quito.
           </Text>
         </View>
@@ -90,12 +102,10 @@ function ValueProp({
   number,
   title,
   description,
-  color,
 }: {
   number: string;
   title: string;
   description: string;
-  color: string;
 }) {
   return (
     <View className="flex-row">
