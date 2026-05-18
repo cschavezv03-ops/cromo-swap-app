@@ -70,6 +70,8 @@ export async function fetchOtherProfile(userId: string): Promise<OtherProfile | 
     is_anonymous: false,
     auction_blocked_until: null,
     expo_push_token: null,
+    terms_accepted_at: null,
+    terms_accepted_version: null,
     created_at: new Date(0).toISOString(),
     updated_at: new Date(0).toISOString(),
   };

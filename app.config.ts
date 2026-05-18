@@ -32,6 +32,17 @@ const config: ExpoConfig = {
   ios: {
     supportsTablet: false,
     bundleIdentifier: 'app.cromoswap.mobile',
+    infoPlist: {
+      // Necesario para que Linking.canOpenURL pueda detectar apps de correo
+      // instaladas en iOS y abrir su INBOX (no componer un mensaje nuevo).
+      LSApplicationQueriesSchemes: [
+        'googlegmail',
+        'ms-outlook',
+        'ymail',
+        'protonmail',
+        'message',
+      ],
+    },
   },
   plugins: [
     'expo-router',

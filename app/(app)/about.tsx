@@ -2,11 +2,10 @@ import Constants from 'expo-constants';
 import { useRouter } from 'expo-router';
 import { Linking, ScrollView, Text, View } from 'react-native';
 
+import { CONTACT_EMAIL } from '@/features/legal/content';
 import { Card, Screen, ScreenHeader } from '@/ui';
 
-const TERMS_URL = 'https://cromoswap.com/terminos';
-const PRIVACY_URL = 'https://cromoswap.com/privacidad';
-const SUPPORT_EMAIL = 'soporte@cromoswap.com';
+const SUPPORT_EMAIL = CONTACT_EMAIL;
 
 export default function AboutScreen() {
   const router = useRouter();
@@ -37,8 +36,18 @@ export default function AboutScreen() {
           <Text className="text-text-tertiary text-[11px] font-sans-semibold uppercase tracking-[0.2em]">
             Legal
           </Text>
-          <AboutLink label="Términos y condiciones" url={TERMS_URL} />
-          <AboutLink label="Política de privacidad" url={PRIVACY_URL} />
+          <Text
+            className="mt-2 text-sm font-sans-semibold text-accent"
+            onPress={() => router.push('/legal/terms')}
+          >
+            Términos y condiciones
+          </Text>
+          <Text
+            className="mt-2 text-sm font-sans-semibold text-accent"
+            onPress={() => router.push('/legal/privacy')}
+          >
+            Política de privacidad
+          </Text>
         </Card>
 
         <Card variant="elevated">

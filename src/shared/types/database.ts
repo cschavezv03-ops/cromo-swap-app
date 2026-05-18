@@ -210,6 +210,8 @@ export type Database = {
           id: string;
           is_anonymous: boolean;
           scope: string[];
+          terms_accepted_at: string | null;
+          terms_accepted_version: string | null;
           university: string | null;
           updated_at: string;
         };

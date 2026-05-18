@@ -38,14 +38,32 @@ export default function LinkSentScreen() {
     }
   };
 
+  /**
+   * Intenta abrir la INBOX (no componer mensaje) de la app de correo. Probamos
+   * varios deep links conocidos en orden. El `mailto:` se evita porque abre
+   * el editor en blanco, lo cual no es lo que queremos. Si ninguno funciona,
+   * caemos a una nota visual.
+   */
   const openMail = async () => {
-    // Intentamos abrir el app de mail del sistema. Si falla, no rompemos.
-    try {
-      const supported = await Linking.canOpenURL('mailto:');
-      if (supported) await Linking.openURL('mailto:');
-    } catch {
-      /* noop */
+    const candidates = [
+      'googlegmail://',
+      'ms-outlook://',
+      'ymail://',
+      'protonmail://',
+      'message://',
+    ];
+    for (const url of candidates) {
+      try {
+        const supported = await Linking.canOpenURL(url);
+        if (supported) {
+          await Linking.openURL(url);
+          return;
+        }
+      } catch {
+        /* siguiente */
+      }
     }
+    toast.show('Abrí tu app de correo manualmente y tocá el enlace.', 'info');
   };
 
   return (

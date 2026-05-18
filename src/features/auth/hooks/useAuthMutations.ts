@@ -49,22 +49,26 @@ export function useUpdateProfile() {
       display_name?: string;
       university?: string;
       scope?: string[];
+      termsAcceptedVersion?: string;
     }) => {
       const { data: userData } = await supabase.auth.getUser();
       const userId = userData.user?.id;
       if (!userId) throw new Error('No hay sesión activa.');
 
+      const upsertPayload: Record<string, unknown> = {
+        id: userId,
+        display_name: patch.display_name ?? '',
+        university: patch.university ?? null,
+        scope: patch.scope ?? [],
+      };
+      if (patch.termsAcceptedVersion) {
+        upsertPayload.terms_accepted_version = patch.termsAcceptedVersion;
+        upsertPayload.terms_accepted_at = new Date().toISOString();
+      }
+
       const { data, error } = await supabase
         .from('profiles')
-        .upsert(
-          {
-            id: userId,
-            display_name: patch.display_name ?? '',
-            university: patch.university ?? null,
-            scope: patch.scope ?? [],
-          },
-          { onConflict: 'id' },
-        )
+        .upsert(upsertPayload, { onConflict: 'id' })
         .select('*')
         .single();
       if (error) throw error;

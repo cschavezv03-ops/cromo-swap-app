@@ -1,23 +1,28 @@
 import { useRouter } from 'expo-router';
 import { useMemo, useState } from 'react';
-import { KeyboardAvoidingView, Platform, ScrollView, Text, View } from 'react-native';
+import { KeyboardAvoidingView, Platform, Pressable, ScrollView, Text, View } from 'react-native';
 
 import { ScopePicker } from '@/features/auth/components/ScopePicker';
 import { useUpdateProfile } from '@/features/auth/hooks/useAuthMutations';
 import { useSession } from '@/features/auth/hooks/useSession';
 import { detectUniversityFromEmail } from '@/features/auth/lib/universities';
+import { LEGAL_VERSION } from '@/features/legal/content';
 import { identify, track } from '@/lib/observability';
+import { useTheme } from '@/theme/ThemeProvider';
 import { Button, Input, Screen, ThemePicker, useToast } from '@/ui';
+import { CheckIcon } from '@/ui/icons/Glyphs';
 
 export default function ProfileSetupScreen() {
   const router = useRouter();
   const toast = useToast();
+  const { colors } = useTheme();
   const { user } = useSession();
   const updateProfile = useUpdateProfile();
 
   const detectedUni = useMemo(() => detectUniversityFromEmail(user?.email ?? ''), [user?.email]);
   const [displayName, setDisplayName] = useState('');
   const [scopeIds, setScopeIds] = useState<string[]>(detectedUni ? [detectedUni.id] : []);
+  const [termsAccepted, setTermsAccepted] = useState(false);
 
   const onSubmit = async () => {
     const name = displayName.trim();
@@ -36,11 +41,16 @@ export default function ProfileSetupScreen() {
       toast.show('Elige al menos una universidad para tu scope.', 'warning');
       return;
     }
+    if (!termsAccepted) {
+      toast.show('Debes aceptar los Términos y la Política de Privacidad.', 'warning');
+      return;
+    }
     try {
       await updateProfile.mutateAsync({
         display_name: name,
         university: detectedUni.id,
         scope: scopeIds,
+        termsAcceptedVersion: LEGAL_VERSION,
       });
       if (user?.id) {
         identify(user.id, {
@@ -51,12 +61,19 @@ export default function ProfileSetupScreen() {
       track('profile_created', {
         university: detectedUni.id,
         scope_count: scopeIds.length,
+        legal_version: LEGAL_VERSION,
       });
       router.replace('/(app)/(tabs)/album');
     } catch (err) {
       toast.show(err instanceof Error ? err.message : 'No se pudo guardar tu perfil.', 'danger');
     }
   };
+
+  const canSubmit =
+    displayName.trim().length >= 2 &&
+    scopeIds.length > 0 &&
+    termsAccepted &&
+    !updateProfile.isPending;
 
   return (
     <Screen>
@@ -125,12 +142,60 @@ export default function ProfileSetupScreen() {
             <ThemePicker />
           </View>
 
-          <View className="mt-10">
+          {/* Aceptación de Términos */}
+          <View className="mt-9">
+            <Pressable
+              onPress={() => setTermsAccepted((v) => !v)}
+              accessibilityRole="checkbox"
+              accessibilityState={{ checked: termsAccepted }}
+              style={{ flexDirection: 'row', alignItems: 'flex-start' }}
+            >
+              <View
+                style={{
+                  width: 22,
+                  height: 22,
+                  borderRadius: 6,
+                  borderWidth: 1.5,
+                  borderColor: termsAccepted ? colors.accent : colors.borderStrong,
+                  backgroundColor: termsAccepted ? colors.accent : 'transparent',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  marginTop: 2,
+                  marginRight: 12,
+                }}
+              >
+                {termsAccepted && <CheckIcon size={14} color={colors.bg} strokeWidth={3} />}
+              </View>
+              <Text
+                className="flex-1 font-sans text-[13px] text-text-secondary"
+                style={{ lineHeight: 19 }}
+              >
+                Soy mayor de 18 años y acepto los{' '}
+                <Text
+                  className="font-sans-semibold text-accent"
+                  onPress={() => router.push('/legal/terms')}
+                >
+                  Términos
+                </Text>{' '}
+                y la{' '}
+                <Text
+                  className="font-sans-semibold text-accent"
+                  onPress={() => router.push('/legal/privacy')}
+                >
+                  Política de Privacidad
+                </Text>
+                . Consiento que mis datos se transfieran a Estados Unidos para el funcionamiento del
+                servicio.
+              </Text>
+            </Pressable>
+          </View>
+
+          <View className="mt-8">
             <Button
               label="Empezar"
               size="lg"
               loading={updateProfile.isPending}
-              disabled={displayName.trim().length < 2 || updateProfile.isPending}
+              disabled={!canSubmit}
               onPress={onSubmit}
             />
           </View>
