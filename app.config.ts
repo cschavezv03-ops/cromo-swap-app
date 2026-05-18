@@ -76,7 +76,7 @@ const config: ExpoConfig = {
   },
   extra: {
     eas: {
-      projectId: '',
+      projectId: 'ee6b2285-ae43-4150-bb46-65f4b4487db4',
     },
     posthogProjectToken: process.env.POSTHOG_PROJECT_TOKEN,
     posthogHost: process.env.POSTHOG_HOST,
