@@ -1,9 +1,10 @@
 import { useRouter } from 'expo-router';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { KeyboardAvoidingView, Platform, Pressable, ScrollView, Text, View } from 'react-native';
 
 import { ScopePicker } from '@/features/auth/components/ScopePicker';
 import { useUpdateProfile } from '@/features/auth/hooks/useAuthMutations';
+import { useProfile } from '@/features/auth/hooks/useProfile';
 import { useSession } from '@/features/auth/hooks/useSession';
 import { detectUniversityFromEmail } from '@/features/auth/lib/universities';
 import { LEGAL_VERSION } from '@/features/legal/content';
@@ -12,17 +13,41 @@ import { useTheme } from '@/theme/ThemeProvider';
 import { Button, Input, Screen, ThemePicker, useToast } from '@/ui';
 import { CheckIcon } from '@/ui/icons/Glyphs';
 
+// Placeholder genérico que mete el trigger handle_new_user al crear cuenta.
+// Si el user trae este display_name, NO lo pre-popula: lo forzamos a escribir
+// su nombre real.
+const DEFAULT_TRIGGER_NAME = 'Usuario';
+
 export default function ProfileSetupScreen() {
   const router = useRouter();
   const toast = useToast();
   const { colors } = useTheme();
   const { user } = useSession();
+  const profileQuery = useProfile();
   const updateProfile = useUpdateProfile();
 
   const detectedUni = useMemo(() => detectUniversityFromEmail(user?.email ?? ''), [user?.email]);
   const [displayName, setDisplayName] = useState('');
   const [scopeIds, setScopeIds] = useState<string[]>(detectedUni ? [detectedUni.id] : []);
   const [termsAccepted, setTermsAccepted] = useState(false);
+  const [hydrated, setHydrated] = useState(false);
+
+  // Pre-popular formulario con los datos que ya tenga el profile (caso
+  // re-entry: user existente que debe re-aceptar términos por bump de
+  // versión legal, o que quedó a medias en signup anterior).
+  useEffect(() => {
+    if (hydrated || profileQuery.isPending) return;
+    const p = profileQuery.data;
+    if (p) {
+      if (p.display_name && p.display_name !== DEFAULT_TRIGGER_NAME) {
+        setDisplayName(p.display_name);
+      }
+      if (p.scope && p.scope.length > 0) {
+        setScopeIds(p.scope);
+      }
+    }
+    setHydrated(true);
+  }, [profileQuery.isPending, profileQuery.data, hydrated]);
 
   const onSubmit = async () => {
     const name = displayName.trim();
