@@ -35,12 +35,24 @@ export function useProfile() {
 }
 
 /**
- * Devuelve `true` solo si el perfil EXISTE y tiene los datos mínimos.
- * Devuelve `false` si `null` (no hay fila) o si faltan campos.
+ * Devuelve `true` solo si el perfil EXISTE, tiene los datos mínimos Y el
+ * usuario aceptó los Términos. Devuelve `false` si `null` (no hay fila) o
+ * si falta algún campo, incluido el consentimiento legal.
+ *
+ * El trigger `handle_new_user` pre-llena display_name='Usuario' y la
+ * universidad detectada del dominio del email, así que esos campos NO son
+ * suficientes para saber si el user completó el onboarding interactivo.
+ * `terms_accepted_version` es el gate real: solo se setea cuando el user
+ * pasa por `/profile-setup` y marca el checkbox de aceptación.
+ *
  * IMPORTANTE: nunca llamar con `undefined` (eso significa "todavía cargando"
  * y se debe esperar).
  */
 export function isProfileComplete(profile: Profile | null): boolean {
   if (!profile) return false;
-  return Boolean(profile.display_name) && Boolean(profile.university);
+  return (
+    Boolean(profile.display_name) &&
+    Boolean(profile.university) &&
+    Boolean(profile.terms_accepted_version)
+  );
 }
