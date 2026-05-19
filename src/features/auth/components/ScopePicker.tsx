@@ -12,37 +12,92 @@ type Props = {
 };
 
 /**
- * Selector minimalista al estilo iOS Settings / Linear:
- *   - Sin cajas con borde
- *   - Sección con label uppercase + hairlines (1px) entre filas
- *   - Selección con un check sutil del color de la uni
- *   - La universidad propia está siempre presente y no se puede quitar
+ * Selector de universidades (scope). Diseño:
+ *   - Card explicativa arriba: qué es scope y para qué sirve
+ *   - Botón "Seleccionar todas / Ninguna" para acción masiva
+ *   - Universidad propia chip permanente con label "Predeterminada"
+ *   - Otras 7 universidades con tap toggle, ícono check visible cuando activa
  */
 export function ScopePicker({ ownUniversity, value, onChange }: Props) {
+  const { colors } = useTheme();
+  const others = universities.filter((u) => u.id !== ownUniversity?.id);
+  const otherIds = others.map((u) => u.id);
+
+  // Solo cuentan las "otras" para el toggle masivo — la propia siempre on
+  const allOthersOn = otherIds.every((id) => value.includes(id));
+  const selectedCount = value.filter((v) => v !== ownUniversity?.id).length;
+
   const toggle = (id: string) => {
     if (ownUniversity?.id === id) return;
     const next = value.includes(id) ? value.filter((x) => x !== id) : [...value, id];
     onChange(next);
   };
 
-  const others = universities.filter((u) => u.id !== ownUniversity?.id);
+  const toggleAll = () => {
+    if (allOthersOn) {
+      onChange(ownUniversity ? [ownUniversity.id] : []);
+    } else {
+      onChange([...(ownUniversity ? [ownUniversity.id] : []), ...otherIds]);
+    }
+  };
 
   return (
     <View>
+      {/* Card explicativa */}
+      <View
+        style={{
+          backgroundColor: colors.surface,
+          borderRadius: 14,
+          padding: 16,
+          marginBottom: 18,
+        }}
+      >
+        <Text
+          className="font-sans-semibold uppercase tracking-[0.18em] text-text-tertiary"
+          style={{ fontSize: 11 }}
+        >
+          ¿Qué es tu scope?
+        </Text>
+        <Text
+          className="mt-2 font-sans text-text-secondary"
+          style={{ fontSize: 14, lineHeight: 20 }}
+        >
+          El scope son las <Text className="font-sans-bold text-text-primary">universidades de las que verás gente</Text>{' '}
+          y publicaciones. Tu propia universidad está incluida siempre. Marcá las otras donde
+          también querés intercambiar.
+        </Text>
+        <Text
+          className="mt-3 font-sans text-text-tertiary"
+          style={{ fontSize: 12, lineHeight: 18 }}
+        >
+          Mientras más amplio el scope, más cromos encontrarás — pero también más gente verá tu
+          perfil.
+        </Text>
+      </View>
+
+      {/* Universidad propia */}
       {ownUniversity && (
         <View className="mb-7">
           <SectionLabel>Tu universidad</SectionLabel>
-          <Row
-            uni={ownUniversity}
-            selected
-            locked
-            isLast
-          />
+          <Row uni={ownUniversity} selected locked isLast />
         </View>
       )}
 
+      {/* Otras unis con toggle masivo */}
       <View>
-        <SectionLabel>También quiero ver</SectionLabel>
+        <View className="mb-2 flex-row items-baseline justify-between">
+          <SectionLabel>
+            También quiero ver{selectedCount > 0 ? ` (${selectedCount})` : ''}
+          </SectionLabel>
+          <Pressable onPress={toggleAll} hitSlop={6}>
+            <Text
+              className="font-sans-semibold text-accent"
+              style={{ fontSize: 12, letterSpacing: 0.2 }}
+            >
+              {allOthersOn ? 'Quitar todas' : 'Seleccionar todas'}
+            </Text>
+          </Pressable>
+        </View>
         {others.map((u, i) => (
           <Row
             key={u.id}
@@ -59,7 +114,7 @@ export function ScopePicker({ ownUniversity, value, onChange }: Props) {
 
 function SectionLabel({ children }: { children: React.ReactNode }) {
   return (
-    <Text className="mb-2 text-[11px] font-sans-semibold uppercase tracking-[0.18em] text-text-tertiary">
+    <Text className="text-[11px] font-sans-semibold uppercase tracking-[0.18em] text-text-tertiary">
       {children}
     </Text>
   );

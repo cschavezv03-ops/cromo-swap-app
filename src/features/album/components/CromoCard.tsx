@@ -13,14 +13,22 @@ type Props = {
   country: CountryMeta | null;
   onPress?: (cromo: AlbumCromo) => void;
   onLongPress?: (cromo: AlbumCromo) => void;
+  /**
+   * Decremento rápido desde la esquina del card. Si owned=1 y se toca, el
+   * cromo pasa a missing. Si owned>=2, decrece en 1 (sigue mostrando como
+   * repetido). El padre conecta este callback a useDecrementOwned. No
+   * propagar al `onPress` del card.
+   */
+  onDecrement?: (cromo: AlbumCromo) => void;
 };
 
-function CromoCardComponent({ cromo, country, onPress, onLongPress }: Props) {
+function CromoCardComponent({ cromo, country, onPress, onLongPress, onDecrement }: Props) {
   const { colors } = useTheme();
   const isMissing = cromo.status === 'missing';
   const isRepeated = cromo.status === 'repeated';
   const ownedBadge = isRepeated ? cromo.owned : 0;
   const stripeColor = country?.stripe ?? colors.borderStrong;
+  const showDecrement = !isMissing && cromo.owned >= 1 && Boolean(onDecrement);
 
   return (
     <Pressable
@@ -90,6 +98,36 @@ function CromoCardComponent({ cromo, country, onPress, onLongPress }: Props) {
           <Text className="text-[10px] font-sans-bold text-bg">x{ownedBadge}</Text>
         </View>
       )}
+
+      {/* Botón − para decrementar rápido. owned=1 → quita (X rojo). owned≥2 → resta. */}
+      {showDecrement && (
+        <Pressable
+          onPress={() => onDecrement?.(cromo)}
+          hitSlop={6}
+          style={{
+            position: 'absolute',
+            left: 4,
+            top: 4,
+            width: 20,
+            height: 20,
+            borderRadius: 10,
+            alignItems: 'center',
+            justifyContent: 'center',
+            backgroundColor: cromo.owned === 1 ? colors.danger : colors.borderStrong,
+          }}
+        >
+          <Text
+            style={{
+              color: '#FFFFFF',
+              fontSize: cromo.owned === 1 ? 11 : 14,
+              fontWeight: '700',
+              lineHeight: cromo.owned === 1 ? 12 : 16,
+            }}
+          >
+            {cromo.owned === 1 ? '✕' : '−'}
+          </Text>
+        </Pressable>
+      )}
     </Pressable>
   );
 }
@@ -100,6 +138,7 @@ export const CromoCard = memo(CromoCardComponent, (prev, next) => {
     prev.cromo.status === next.cromo.status &&
     prev.cromo.owned === next.cromo.owned &&
     prev.cromo.pasted === next.cromo.pasted &&
-    prev.country?.code === next.country?.code
+    prev.country?.code === next.country?.code &&
+    prev.onDecrement === next.onDecrement
   );
 });

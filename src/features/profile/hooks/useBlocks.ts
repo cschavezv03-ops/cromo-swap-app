@@ -21,15 +21,35 @@ export function useIsBlocked(targetUserId: string | null | undefined) {
   });
 }
 
+/**
+ * Invalidación completa tras block/unblock. El bloqueo afecta:
+ *   - Profile del bloqueado (other-profile)
+ *   - Lista de amigos (puede haber friendship rota)
+ *   - Matches y suggestions
+ *   - Búsqueda de usuarios (no debe aparecer en results)
+ *   - Avisos / notifications (algunas pueden quedar invalidadas)
+ *
+ * Sin invalidar TODO esto el UI queda mostrando data stale del bloqueado
+ * (perfil, avatar, listings) → "se daña todo" como reportó el usuario.
+ */
+function invalidateBlockRelated(
+  qc: ReturnType<typeof useQueryClient>,
+  targetUserId: string,
+) {
+  void qc.invalidateQueries({ queryKey: ['profile', 'blocks'] });
+  void qc.invalidateQueries({ queryKey: ['other-profile', targetUserId] });
+  void qc.invalidateQueries({ queryKey: ['friends'] });
+  void qc.invalidateQueries({ queryKey: ['matches'] });
+  void qc.invalidateQueries({ queryKey: ['profile-search'] });
+  void qc.invalidateQueries({ queryKey: ['marketplace', 'active'] });
+  void qc.invalidateQueries({ queryKey: ['notifications'] });
+}
+
 export function useBlockUser() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: blockUser,
-    onSuccess: (_v, targetUserId) => {
-      void qc.invalidateQueries({ queryKey: ['profile', 'blocks'] });
-      void qc.invalidateQueries({ queryKey: ['matches'] });
-      void qc.invalidateQueries({ queryKey: ['other-profile', targetUserId] });
-    },
+    onSuccess: (_v, targetUserId) => invalidateBlockRelated(qc, targetUserId),
   });
 }
 
@@ -37,9 +57,6 @@ export function useUnblockUser() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: unblockUser,
-    onSuccess: () => {
-      void qc.invalidateQueries({ queryKey: ['profile', 'blocks'] });
-      void qc.invalidateQueries({ queryKey: ['matches'] });
-    },
+    onSuccess: (_v, targetUserId) => invalidateBlockRelated(qc, targetUserId),
   });
 }

@@ -16,12 +16,17 @@ type Props = {
   listingId: string;
   currentBid: number | null;
   startPrice: number | null;
-  bidIncrement: number | null;
   bidsCount: number;
 };
 
+// Las subastas ahora aceptan cualquier monto > current_bid en al menos $0.01.
+// El UI usa $0.25 como STEP de los botones +/- por usabilidad, pero el user
+// puede tipear cualquier monto válido directamente.
+const STEP = 0.25;
+const MIN_INCREMENT = 0.01;
+
 export const BidSheet = forwardRef<BidSheetHandle, Props>(function BidSheet(
-  { listingId, currentBid, startPrice, bidIncrement, bidsCount },
+  { listingId, currentBid, startPrice, bidsCount },
   ref,
 ) {
   const sheetRef = useRef<BottomSheetModal>(null);
@@ -31,7 +36,7 @@ export const BidSheet = forwardRef<BidSheetHandle, Props>(function BidSheet(
   const baseMin =
     bidsCount === 0
       ? startPrice ?? 1
-      : (currentBid ?? startPrice ?? 0) + (bidIncrement ?? 1);
+      : (currentBid ?? startPrice ?? 0) + MIN_INCREMENT;
   const [amount, setAmount] = useState<number>(baseMin);
 
   useImperativeHandle(ref, () => ({
@@ -39,17 +44,16 @@ export const BidSheet = forwardRef<BidSheetHandle, Props>(function BidSheet(
       const nextMin =
         bidsCount === 0
           ? startPrice ?? 1
-          : (currentBid ?? startPrice ?? 0) + (bidIncrement ?? 1);
+          : (currentBid ?? startPrice ?? 0) + MIN_INCREMENT;
       setAmount(nextMin);
       sheetRef.current?.present();
     },
     dismiss: () => sheetRef.current?.dismiss(),
   }));
 
-  const step = bidIncrement ?? 1;
   const handleStep = (dir: 1 | -1) => {
     setAmount((prev) => {
-      const next = Math.max(baseMin, prev + dir * step);
+      const next = Math.max(baseMin, prev + dir * STEP);
       return Math.round(next * 100) / 100;
     });
   };
@@ -86,7 +90,7 @@ export const BidSheet = forwardRef<BidSheetHandle, Props>(function BidSheet(
           Hacer una oferta
         </Text>
         <Text className="mt-2 text-sm font-sans text-text-secondary">
-          Oferta mínima: {formatUsd(baseMin)} (incremento {formatUsd(step)}).
+          Oferta mínima: {formatUsd(baseMin)}. Puedes ofertar cualquier monto mayor.
         </Text>
 
         <View className="mt-6 flex-row items-end gap-3">

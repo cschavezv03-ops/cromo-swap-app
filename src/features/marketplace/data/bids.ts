@@ -18,6 +18,16 @@ export async function placeBid(args: {
   return data as string;
 }
 
+/** Seller marca subasta como vendida antes del ends_at (con el bid más alto). */
+export async function markAuctionSold(listingId: string): Promise<string> {
+  const { data, error } = await supabase.rpc('fn_mark_auction_sold', {
+    p_listing_id: listingId,
+  });
+  if (error) throw error;
+  if (!data) throw new Error('No se pudo cerrar la subasta.');
+  return data as string;
+}
+
 /** Compra inmediata de una subasta al precio `buy_now_price`. Devuelve el transaction_id. */
 export async function buyNowAuction(listingId: string): Promise<string> {
   const { data, error } = await supabase.rpc('fn_buy_now_auction', {

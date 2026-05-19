@@ -8,7 +8,11 @@ import { universitiesById } from '@/features/auth/lib/universities';
 import { AuctionCountdown } from '@/features/marketplace/components/AuctionCountdown';
 import { BidSheet, type BidSheetHandle } from '@/features/marketplace/components/BidSheet';
 import { ListingPriceTag } from '@/features/marketplace/components/ListingPriceTag';
-import { useBidsForListing, useBuyNowAuction } from '@/features/marketplace/hooks/useBids';
+import {
+  useBidsForListing,
+  useBuyNowAuction,
+  useMarkAuctionSold,
+} from '@/features/marketplace/hooks/useBids';
 import {
   useCancelListing,
   useCloseAuction,
@@ -47,6 +51,22 @@ export default function ListingDetailScreen() {
   const closeMut = useCloseAuction();
   const purchaseMut = useCreatePurchaseRequest();
   const buyNowMut = useBuyNowAuction(listingId ?? '');
+  const markSoldMut = useMarkAuctionSold(listingId ?? '');
+
+  const handleMarkSold = async () => {
+    try {
+      const txId = await markSoldMut.mutateAsync();
+      toast.show('Subasta cerrada con el bid más alto.', 'success');
+      router.push({ pathname: '/(app)/transaction/[id]', params: { id: txId } });
+    } catch (err) {
+      const code = err instanceof Error ? err.message : 'unknown';
+      if (code.includes('no_bids')) {
+        toast.show('No hay ofertas aún. No se puede marcar como vendida.', 'warning');
+      } else {
+        toast.show(messageForListingError(asMsg(err)), 'danger');
+      }
+    }
+  };
 
   useListingDetailRealtime(listingId);
 
@@ -345,7 +365,8 @@ export default function ListingDetailScreen() {
             cancelMut.isPending ||
             purchaseMut.isPending ||
             closeMut.isPending ||
-            buyNowMut.isPending
+            buyNowMut.isPending ||
+            markSoldMut.isPending
           }
           auctionEnded={auctionEnded}
           isAuctionBlocked={isAuctionBlocked}
@@ -355,6 +376,8 @@ export default function ListingDetailScreen() {
           onPurchase={handleRequestPurchase}
           onBid={handleBid}
           onBuyNow={handleBuyNow}
+          onMarkSold={handleMarkSold}
+          bidsCount={bids.data?.length ?? 0}
         />
       </View>
 
@@ -364,7 +387,6 @@ export default function ListingDetailScreen() {
           listingId={listingId}
           currentBid={tx.current_bid}
           startPrice={tx.start_price}
-          bidIncrement={tx.bid_increment}
           bidsCount={tx.bids_count}
         />
       )}
@@ -432,6 +454,8 @@ function ListingActions({
   onPurchase,
   onBid,
   onBuyNow,
+  onMarkSold,
+  bidsCount,
 }: {
   tx: NonNullable<ReturnType<typeof useListingDetail>['data']>;
   isSeller: boolean;
@@ -444,6 +468,8 @@ function ListingActions({
   onPurchase: () => void;
   onBid: () => void;
   onBuyNow: () => void;
+  onMarkSold: () => void;
+  bidsCount: number;
 }) {
   if (tx.status === 'cancelled' || tx.status === 'completed') {
     return (
@@ -470,12 +496,21 @@ function ListingActions({
       );
     }
     if (tx.status === 'active') {
+      const showMarkSold = tx.kind === 'auction' && bidsCount > 0;
       return (
         <View className="gap-2">
+          {showMarkSold && (
+            <Button
+              label="Marcar como vendida"
+              size="lg"
+              loading={isMutating}
+              onPress={onMarkSold}
+            />
+          )}
           <Button
             label="Pausar publicación"
             size="lg"
-            variant="secondary"
+            variant={showMarkSold ? 'ghost' : 'secondary'}
             loading={isMutating}
             onPress={onPause}
           />

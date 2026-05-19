@@ -159,6 +159,11 @@ export const SobreSheet = forwardRef<SobreSheetHandle>(function SobreSheet(_, re
             tally={tally}
             onInc={incTally}
             onDec={decTally}
+            onAddAll={(ids) => setTally((prev) => {
+              const next = { ...prev };
+              for (const id of ids) next[id] = (next[id] ?? 0) + 1;
+              return next;
+            })}
             search={search}
             onSearchChange={setSearch}
           />
@@ -234,6 +239,7 @@ type CountryModeProps = {
   tally: Record<string, number>;
   onInc: (cromoId: string) => void;
   onDec: (cromoId: string) => void;
+  onAddAll: (cromoIds: string[]) => void;
   search: string;
   onSearchChange: (q: string) => void;
 };
@@ -245,6 +251,7 @@ function CountryMode({
   tally,
   onInc,
   onDec,
+  onAddAll,
   search,
   onSearchChange,
 }: CountryModeProps) {
@@ -346,20 +353,33 @@ function CountryMode({
           </ScrollView>
 
           {countryMeta && (
-            <View className="mt-4 flex-row items-center gap-2">
-              <SectionMark
-                country={{
-                  code: countryMeta.code,
-                  name: countryMeta.name,
-                  stripe: countryMeta.stripe,
-                  accent: countryMeta.accent,
-                  flag_emoji: '',
-                }}
-                size="md"
-              />
-              <Text className="text-base font-sans-bold text-text-primary">
-                {countryMeta.name}
-              </Text>
+            <View className="mt-4 flex-row items-center justify-between gap-2">
+              <View className="flex-row items-center gap-2">
+                <SectionMark
+                  country={{
+                    code: countryMeta.code,
+                    name: countryMeta.name,
+                    stripe: countryMeta.stripe,
+                    accent: countryMeta.accent,
+                    flag_emoji: '',
+                  }}
+                  size="md"
+                />
+                <Text className="text-base font-sans-bold text-text-primary">
+                  {countryMeta.name}
+                </Text>
+              </View>
+              {!hasSearch && byCountry.data && byCountry.data.length > 0 && (
+                <Pressable
+                  onPress={() => onAddAll((byCountry.data ?? []).map((c) => c.id))}
+                  className="rounded-pill bg-accent px-3 py-1.5"
+                  hitSlop={6}
+                >
+                  <Text className="text-[11px] font-sans-semibold text-white">
+                    Tengo todos +1
+                  </Text>
+                </Pressable>
+              )}
             </View>
           )}
         </View>

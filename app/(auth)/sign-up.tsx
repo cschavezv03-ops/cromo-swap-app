@@ -4,6 +4,7 @@ import { KeyboardAvoidingView, Platform, Pressable, ScrollView, Text, View } fro
 
 import { UniversityBadge } from '@/features/auth/components/UniversityBadge';
 import { useSignUpWithPassword } from '@/features/auth/hooks/useAuthMutations';
+import { validatePassword } from '@/features/auth/lib/password';
 import {
   allowedDomains,
   detectUniversityFromEmail,
@@ -31,11 +32,12 @@ export default function SignUpScreen() {
       ? `Solo correos de: ${allowedDomains.join(', ')}`
       : undefined;
 
-  const passwordTooShort = password.length > 0 && password.length < 8;
+  const pwdValidation = useMemo(() => validatePassword(password), [password]);
+  const showPwdIssues = password.length > 0 && !pwdValidation.ok;
   const mismatch = confirm.length > 0 && confirm !== password;
 
   const canSubmit =
-    validEmail && password.length >= 8 && password === confirm && !signUp.isPending;
+    validEmail && pwdValidation.ok && password === confirm && !signUp.isPending;
 
   const onSubmit = async () => {
     setTouchedEmail(true);
@@ -108,14 +110,14 @@ export default function SignUpScreen() {
 
             <Input
               label="Contraseña"
-              placeholder="Mínimo 8 caracteres"
+              placeholder="Mínimo 8 caracteres, letra y número"
               secureTextEntry
               autoCapitalize="none"
               autoComplete="password-new"
               textContentType="newPassword"
               value={password}
               onChangeText={setPassword}
-              helper={passwordTooShort ? `Faltan ${8 - password.length}` : undefined}
+              helper={showPwdIssues ? `Falta: ${pwdValidation.messages.join(', ').toLowerCase()}` : undefined}
             />
 
             <Input

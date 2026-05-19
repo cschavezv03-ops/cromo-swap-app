@@ -60,8 +60,14 @@ export const CromoSheet = forwardRef<CromoSheetHandle>(function CromoSheet(_, re
       { cromoId: cromo.id, owned: 0 },
       {
         onSuccess: () => {
-          toast.show('Cromo eliminado de tu álbum.', 'info');
+          toast.show('Cromo eliminado del álbum.', 'info');
           inner.current?.dismiss();
+        },
+        onError: (err) => {
+          toast.show(
+            err instanceof Error ? err.message : 'No se pudo quitar el cromo.',
+            'danger',
+          );
         },
       },
     );

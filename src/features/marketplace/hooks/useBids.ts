@@ -2,7 +2,13 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { track } from '@/lib/observability';
 
-import { buyNowAuction, fetchBidsForListing, fetchMyBids, placeBid } from '../data/bids';
+import {
+  buyNowAuction,
+  fetchBidsForListing,
+  fetchMyBids,
+  markAuctionSold,
+  placeBid,
+} from '../data/bids';
 
 const KEYS = {
   forListing: (listingId: string) => ['marketplace', 'bids', listingId] as const,
@@ -45,6 +51,20 @@ export function useBuyNowAuction(listingId: string) {
   return useMutation({
     mutationFn: () => buyNowAuction(listingId),
     onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: KEYS.forListing(listingId) });
+      void qc.invalidateQueries({ queryKey: ['marketplace', 'detail', listingId] });
+      void qc.invalidateQueries({ queryKey: ['marketplace', 'active'] });
+      void qc.invalidateQueries({ queryKey: ['transactions'] });
+    },
+  });
+}
+
+export function useMarkAuctionSold(listingId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () => markAuctionSold(listingId),
+    onSuccess: () => {
+      track('auction_marked_sold', { listing_id: listingId });
       void qc.invalidateQueries({ queryKey: KEYS.forListing(listingId) });
       void qc.invalidateQueries({ queryKey: ['marketplace', 'detail', listingId] });
       void qc.invalidateQueries({ queryKey: ['marketplace', 'active'] });

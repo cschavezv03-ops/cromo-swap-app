@@ -23,6 +23,10 @@ export function useMatchSuggestions() {
     queryKey: KEY.suggestions,
     queryFn: fetchMatchSuggestions,
     staleTime: 1000 * 60,
+    // Refetch automático cada 90s mientras la pantalla esté activa para que
+    // los matches aparezcan sin pull-to-refresh, en caso de que realtime caiga.
+    refetchInterval: 1000 * 90,
+    refetchIntervalInBackground: false,
   });
 }
 
@@ -31,6 +35,8 @@ export function useMyMatches(direction: MatchDirection) {
     queryKey: KEY.mine(direction),
     queryFn: () => fetchMyMatches(direction),
     staleTime: 1000 * 30,
+    refetchInterval: 1000 * 60,
+    refetchIntervalInBackground: false,
   });
 }
 

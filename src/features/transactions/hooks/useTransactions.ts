@@ -20,6 +20,9 @@ export function useTransaction(id: string | undefined) {
     enabled: Boolean(id),
     queryFn: () => fetchTransaction(id as string),
     staleTime: 1000 * 15,
+    // Refetch automático cada 45s mientras el detalle está abierto.
+    refetchInterval: 1000 * 45,
+    refetchIntervalInBackground: false,
   });
 }
 
@@ -28,6 +31,8 @@ export function useMyTransactions() {
     queryKey: KEY.list,
     queryFn: fetchMyTransactions,
     staleTime: 1000 * 30,
+    refetchInterval: 1000 * 60,
+    refetchIntervalInBackground: false,
   });
 }
 

@@ -182,7 +182,15 @@ export function useUpdateProfile() {
       }
       return data;
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
+      // Empujar el profile actualizado al cache SINCRONO para que cualquier
+      // re-render que ocurra inmediatamente despues (router.replace, guard
+      // de _layout(app)) vea el state nuevo y NO redirija de vuelta a
+      // profile-setup. `invalidateQueries` solo dispara refetch async, no
+      // espera; sin esto hay race condition con el guard.
+      if (data?.id) {
+        qc.setQueryData(['profile', data.id], data);
+      }
       void qc.invalidateQueries({ queryKey: ['profile'] });
       void qc.invalidateQueries({ queryKey: albumQueryKey });
     },

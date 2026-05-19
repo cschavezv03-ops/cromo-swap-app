@@ -51,7 +51,6 @@ export const CreateListingSheet = forwardRef<CreateListingSheetHandle, Props>(
     const [kind, setKind] = useState<ListingKind>('sale');
     const [picked, setPicked] = useState<Record<string, number>>({}); // cromo_id -> quantity
     const [priceText, setPriceText] = useState('');
-    const [bidIncrementText, setBidIncrementText] = useState('1');
     const [buyNowText, setBuyNowText] = useState('');
     const [durationHours, setDurationHours] = useState<number>(24);
     const [negotiable, setNegotiable] = useState(false);
@@ -63,7 +62,6 @@ export const CreateListingSheet = forwardRef<CreateListingSheetHandle, Props>(
       setKind('sale');
       setPicked({});
       setPriceText('');
-      setBidIncrementText('1');
       setBuyNowText('');
       setDurationHours(24);
       setNegotiable(false);
@@ -147,12 +145,7 @@ export const CreateListingSheet = forwardRef<CreateListingSheetHandle, Props>(
         } else {
           const first = pickedItems[0];
           if (!first) throw new Error('Selecciona un cromo.');
-          const increment = Number(bidIncrementText);
           const buyNow = buyNowText ? Number(buyNowText) : null;
-          if (!Number.isFinite(increment) || increment <= 0) {
-            toast.show('El incremento de la oferta debe ser mayor a 0.', 'warning');
-            return;
-          }
           if (buyNow !== null && (!Number.isFinite(buyNow) || buyNow <= price)) {
             toast.show('El precio "comprar ya" debe ser mayor al inicial.', 'warning');
             return;
@@ -161,7 +154,8 @@ export const CreateListingSheet = forwardRef<CreateListingSheetHandle, Props>(
             cromoId: first[0],
             startPrice: price,
             durationHours,
-            bidIncrement: increment,
+            // Increment fijo del lado server (0.01). El UI ya no lo pide.
+            bidIncrement: 0.01,
             buyNowPrice: buyNow,
             isPublic,
             scopeUniversities,
@@ -234,8 +228,6 @@ export const CreateListingSheet = forwardRef<CreateListingSheetHandle, Props>(
                 kind={kind}
                 priceText={priceText}
                 onPriceText={setPriceText}
-                bidIncrementText={bidIncrementText}
-                onBidIncrementText={setBidIncrementText}
                 buyNowText={buyNowText}
                 onBuyNowText={setBuyNowText}
                 durationHours={durationHours}
@@ -487,8 +479,6 @@ function PriceStep({
   kind,
   priceText,
   onPriceText,
-  bidIncrementText,
-  onBidIncrementText,
   buyNowText,
   onBuyNowText,
   durationHours,
@@ -503,8 +493,6 @@ function PriceStep({
   kind: ListingKind;
   priceText: string;
   onPriceText: (v: string) => void;
-  bidIncrementText: string;
-  onBidIncrementText: (v: string) => void;
   buyNowText: string;
   onBuyNowText: (v: string) => void;
   durationHours: number;
@@ -532,16 +520,6 @@ function PriceStep({
 
       {kind === 'auction' && (
         <>
-          <Input
-            label="Incremento de oferta (USD)"
-            keyboardType="numeric"
-            value={bidIncrementText}
-            onChangeText={onBidIncrementText}
-            leftSlot={
-              <Text className="mr-2 text-base font-sans-semibold text-text-secondary">$</Text>
-            }
-            helper="Cada oferta deberá superar a la actual al menos en este monto."
-          />
           <Input
             label='Precio "comprar ya" (opcional)'
             keyboardType="numeric"

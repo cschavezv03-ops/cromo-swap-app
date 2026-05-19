@@ -1,5 +1,6 @@
 import { Tabs } from 'expo-router';
 import { Text, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useTheme } from '@/theme/ThemeProvider';
 import {
@@ -58,6 +59,11 @@ function TabContent({ focused, label, icon }: { focused: boolean; label: string;
 
 export default function TabsLayout() {
   const { colors } = useTheme();
+  const insets = useSafeAreaInsets();
+  // Respeta el área segura inferior (gesture nav bar / 3-button nav / iPhone
+  // home indicator). Sin esto, en Android con barra de botones la tabBar se
+  // solapa con los botones del sistema.
+  const bottomInset = Math.max(insets.bottom, 6);
   return (
     <Tabs
       screenOptions={{
@@ -67,9 +73,9 @@ export default function TabsLayout() {
           backgroundColor: colors.bg,
           borderTopColor: colors.border,
           borderTopWidth: 0.5,
-          height: 70,
+          height: 60 + bottomInset,
           paddingTop: 4,
-          paddingBottom: 10,
+          paddingBottom: bottomInset,
           elevation: 0,
         },
       }}

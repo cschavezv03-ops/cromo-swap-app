@@ -24,7 +24,7 @@ import { loadAllCountries } from '../data/catalog';
 import { pullRemoteInventory } from '../data/inventory';
 import { albumQueryKey, useFilteredAlbum } from '../hooks/useAlbumData';
 import { useFiltersHydration, useFiltersStore } from '../hooks/useFilters';
-import { useIncrementOwned } from '../hooks/useInventoryMutation';
+import { useDecrementOwned, useIncrementOwned } from '../hooks/useInventoryMutation';
 import { SPECIAL_SECTIONS, SPECIAL_SECTION_HINTS } from '../lib/sections';
 import type {
   AlbumCromo,
@@ -79,6 +79,7 @@ export function AlbumScreen() {
   const cromoSheetRef = useRef<CromoSheetHandle>(null);
   const sobreSheetRef = useRef<SobreSheetHandle>(null);
   const inc = useIncrementOwned();
+  const dec = useDecrementOwned();
   const qc = useQueryClient();
 
   const countriesQ = useQuery({
@@ -146,6 +147,22 @@ export function AlbumScreen() {
     [countryByCode],
   );
 
+  const handleDecrement = useCallback(
+    (cromo: AlbumCromo) => {
+      dec.mutate(cromo.id, {
+        onSuccess: () => {
+          if (cromo.owned === 1) {
+            toast.show('Cromo eliminado del álbum.', 'info');
+          }
+        },
+        onError: (err) => {
+          toast.show(err instanceof Error ? err.message : 'No se pudo quitar.', 'danger');
+        },
+      });
+    },
+    [dec, toast],
+  );
+
   const handleRefresh = useCallback(async () => {
     try {
       const n = await pullRemoteInventory();
@@ -170,10 +187,11 @@ export function AlbumScreen() {
           cardWidth={cardWidth}
           onPress={handlePressCromo}
           onLongPress={handleLongPress}
+          onDecrement={handleDecrement}
         />
       );
     },
-    [cardWidth, handlePressCromo, handleLongPress],
+    [cardWidth, handlePressCromo, handleLongPress, handleDecrement],
   );
 
   const getItemType = useCallback((item: ListItem) => item.type, []);
@@ -318,12 +336,14 @@ const CromoRow = ({
   cardWidth,
   onPress,
   onLongPress,
+  onDecrement,
 }: {
   country: CountryMeta;
   cromos: AlbumCromo[];
   cardWidth: number;
   onPress: (cromo: AlbumCromo) => void;
   onLongPress: (cromo: AlbumCromo) => void;
+  onDecrement: (cromo: AlbumCromo) => void;
 }) => {
   return (
     <View
@@ -340,6 +360,7 @@ const CromoRow = ({
             country={country}
             onPress={onPress}
             onLongPress={onLongPress}
+            onDecrement={onDecrement}
           />
         </View>
       ))}

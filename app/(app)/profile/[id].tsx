@@ -33,7 +33,16 @@ export default function OtherProfileScreen() {
   const isSelf = user?.id === id;
   const profile = other.data?.profile ?? null;
   const stats = other.data?.inventory_stats;
-  const albumPct = stats && stats.total > 0 ? (stats.have + stats.repeated) / stats.total : 0;
+  // Si tenemos stats completos (caso amigo o scope) calculamos desde inventario.
+  // Si NO (vista pública mínima de un user fuera de scope/no-amigo), usamos el
+  // profiles.album_pct mantenido por el trigger del server. Defensa contra
+  // NaN/null/undefined que antes se renderizaba como 100% en el ProgressRing.
+  const albumPct =
+    stats && stats.total > 0
+      ? (stats.have + stats.repeated) / stats.total
+      : typeof profile?.album_pct === 'number'
+        ? profile.album_pct / 100
+        : 0;
   const uni = profile?.university ? universitiesById[profile.university] : null;
   const isFriend = friendship.data?.status === 'friends';
 

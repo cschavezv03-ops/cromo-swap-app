@@ -14,6 +14,10 @@ export function useMyNotifications() {
     queryFn: fetchMyNotifications,
     staleTime: 1000 * 30,
     refetchOnMount: 'always',
+    // Polling cada 45s mientras la pantalla esté visible. Realtime sigue
+    // siendo la fuente primaria (más rápido), esto es safety net.
+    refetchInterval: 1000 * 45,
+    refetchIntervalInBackground: false,
   });
 }
 
